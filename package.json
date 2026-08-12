@@ -44,7 +44,8 @@
     "publish": {
       "provider": "github",
       "owner": "VictorKaml",
-      "repo": "gofresh-analytics"
+      "repo": "gofresh-analytics",
+      "releaseType": "release"
     },
     "win": {
       "target": [
