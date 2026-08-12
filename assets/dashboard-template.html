@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GoFresh RetailMax — Sales Intelligence Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,'Segoe UI',Roboto,sans-serif;background:#f4f6f8;color:#1f2937;line-height:1.4}
+  header{background:linear-gradient(135deg,#16a34a 0%,#0f766e 100%);color:#fff;padding:20px 28px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+  header h1{font-size:22px;font-weight:700;letter-spacing:-.3px}
+  header .sub{font-size:12px;opacity:.85;margin-top:4px}
+  .container{max-width:1400px;margin:0 auto;padding:20px 24px}
+  .tabs{display:flex;gap:4px;background:#fff;padding:6px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:20px;flex-wrap:wrap}
+  .tab{padding:9px 18px;border:0;background:transparent;cursor:pointer;font-size:13px;font-weight:500;color:#64748b;border-radius:7px;transition:all .15s}
+  .tab:hover{background:#f1f5f9;color:#0f172a}
+  .tab.active{background:#16a34a;color:#fff;font-weight:600}
+  .panel{display:none}
+  .panel.active{display:block;animation:fade .25s ease-in}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:20px}
+  .kpi{background:#fff;padding:16px 18px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);border-left:4px solid #16a34a}
+  .kpi-label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:6px}
+  .kpi-value{font-size:22px;font-weight:700;color:#0f172a}
+  .kpi-sub{font-size:11px;color:#64748b;margin-top:3px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px}
+  @media(max-width:900px){.grid2{grid-template-columns:1fr}}
+  .card{background:#fff;border-radius:10px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  .card h3{font-size:13px;font-weight:600;color:#0f172a;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+  .chart-box{position:relative;height:280px}
+  .chart-box.tall{height:340px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{text-align:left;padding:8px 10px;background:#f8fafc;color:#475569;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid #e2e8f0}
+  td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
+  tr:hover td{background:#f8fafc}
+  .num{text-align:right;font-variant-numeric:tabular-nums}
+  .pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+  .pill.chk{background:#dcfce7;color:#15803d}
+  .pill.bf{background:#fee2e2;color:#b91c1c}
+  .pill.eg{background:#fef3c7;color:#b45309}
+  .pill.tr{background:#ede9fe;color:#6d28d9}
+  .filter-row{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+  .filter-row label{font-size:12px;color:#475569;font-weight:500}
+  select,input{padding:7px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff;font-family:inherit}
+  select:focus,input:focus{outline:0;border-color:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,.15)}
+  .footer{text-align:center;padding:30px 0 20px;color:#94a3b8;font-size:11px}
+  .rank{font-size:14px;font-weight:700;color:#16a34a;width:28px;display:inline-block}
+  .insight{background:#f0fdf4;border-left:3px solid #16a34a;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#15803d;border-radius:6px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🛒 GoFresh RetailMax — Sales Intelligence Dashboard</h1>
+  <div class="sub" id="hdrSub">Loading...</div>
+</header>
+
+<div class="container">
+
+
+  <div class="filter-bar" style="background:#fff;padding:14px 20px;box-shadow:0 1px 3px rgba(0,0,0,.06);border-radius:10px;margin-bottom:16px;display:flex;flex-wrap:wrap;align-items:center;gap:12px">
+    <span style="font-weight:600;color:#0f172a;font-size:13px">📅 Date range:</span>
+    <input type="date" id="dateStart" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;font-family:inherit">
+    <span style="color:#64748b">to</span>
+    <input type="date" id="dateEnd" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;font-family:inherit">
+    <button class="quickRange" data-days="1" style="padding:6px 12px;border:1px solid #cbd5e1;background:#fff;border-radius:6px;font-size:11px;cursor:pointer">Last 1 day</button>
+    <button class="quickRange" data-days="3" style="padding:6px 12px;border:1px solid #cbd5e1;background:#fff;border-radius:6px;font-size:11px;cursor:pointer">Last 3 days</button>
+    <button class="quickRange" data-days="7" style="padding:6px 12px;border:1px solid #cbd5e1;background:#fff;border-radius:6px;font-size:11px;cursor:pointer">Last 7 days</button>
+    <button id="dateReset" style="padding:6px 12px;border:1px solid #16a34a;background:#16a34a;color:#fff;border-radius:6px;font-size:11px;cursor:pointer;font-weight:500">Reset (all)</button>
+    <span id="filterSummary" style="color:#16a34a;font-weight:500;font-size:12px;margin-left:auto"></span>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-p="exec">🏢 Executive</button>
+    <button class="tab" data-p="overview">📊 Overview</button>
+    <button class="tab" data-p="segments">🍗 Segments</button>
+    <button class="tab" data-p="shops">🏪 Shops</button>
+    <button class="tab" data-p="products">🏆 Products</button>
+    <button class="tab" data-p="time">🕐 Time Patterns</button>
+    <button class="tab" data-p="regions">🌍 Regions</button>
+    <button class="tab" data-p="data">📋 Raw Tables</button>
+  </div>
+
+  <!-- EXEC (Executive summary) -->
+  <div class="panel active" id="p-exec">
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">Months in view</div><div class="kpi-value" id="eMonths"></div><div class="kpi-sub" id="eMonthsSub"></div></div>
+      <div class="kpi"><div class="kpi-label">Total Turnover</div><div class="kpi-value" id="eTurn"></div><div class="kpi-sub">Across period</div></div>
+      <div class="kpi"><div class="kpi-label">Total Volume</div><div class="kpi-value" id="eVol"></div><div class="kpi-sub">kg sold</div></div>
+      <div class="kpi" style="border-left-color:#0f766e"><div class="kpi-label">Avg NSV / KG</div><div class="kpi-value" id="eNsv"></div><div class="kpi-sub">Turnover ÷ Volume</div></div>
+      <div class="kpi" style="border-left-color:#7c3aed"><div class="kpi-label">Avg Daily / Shop</div><div class="kpi-value" id="eDaily"></div><div class="kpi-sub" id="eDailySub"></div></div>
+    </div>
+
+    <div class="card"><h3>📊 Monthly Performance Summary</h3><table id="tExec"></table></div>
+
+    <div class="grid2" style="margin-top:16px">
+      <div class="card"><h3>💰 Turnover per Month</h3><div class="chart-box tall"><canvas id="cExecTurn"></canvas></div></div>
+      <div class="card"><h3>⚖️ Volume per Month (kg)</h3><div class="chart-box tall"><canvas id="cExecVol"></canvas></div></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><h3>🎯 Price per KG (NSV) — Monthly Trend</h3><div class="chart-box tall"><canvas id="cExecNsv"></canvas></div></div>
+      <div class="card"><h3>🏪 Avg Daily Sales per Shop — Monthly Trend</h3><div class="chart-box tall"><canvas id="cExecDaily"></canvas></div></div>
+    </div>
+    <div class="card">
+      <h3>🏬 Active Shops per Month</h3><div class="chart-box"><canvas id="cExecShops"></canvas></div>
+    </div>
+  </div>
+
+  <div class="panel" id="p-overview">
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">Total Revenue</div><div class="kpi-value" id="kRev"></div><div class="kpi-sub" id="kRevSub"></div></div>
+      <div class="kpi"><div class="kpi-label">Total Qty Sold</div><div class="kpi-value" id="kQty"></div><div class="kpi-sub">All segments</div></div>
+      <div class="kpi"><div class="kpi-label">Avg Daily Revenue</div><div class="kpi-value" id="kAvg"></div><div class="kpi-sub" id="kAvgSub"></div></div>
+      <div class="kpi"><div class="kpi-label">Transactions</div><div class="kpi-value" id="kTx"></div><div class="kpi-sub">Line items</div></div>
+      <div class="kpi"><div class="kpi-label">Avg Basket</div><div class="kpi-value" id="kBasket"></div><div class="kpi-sub">Per line</div></div>
+      <div class="kpi"><div class="kpi-label">Active Shops</div><div class="kpi-value" id="kShops"></div><div class="kpi-sub">With revenue</div></div>
+      <div class="kpi" style="border-left-color:#0f766e"><div class="kpi-label">Avg NSV / KG</div><div class="kpi-value" id="kNsvKg"></div><div class="kpi-sub" id="kNsvKgSub"></div></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><h3>📅 Daily Revenue Trend</h3><div class="chart-box"><canvas id="cDay"></canvas></div></div>
+      <div class="card"><h3>🥧 Revenue by Segment</h3><div class="chart-box"><canvas id="cSeg"></canvas></div></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><h3>📆 Revenue by Weekday</h3><div class="chart-box"><canvas id="cWd"></canvas></div></div>
+      <div class="card"><h3>🌍 Revenue by Region</h3><div class="chart-box"><canvas id="cReg"></canvas></div></div>
+    </div>
+  </div>
+
+  <div class="panel" id="p-segments">
+    <div class="grid2">
+      <div class="card"><h3>Segment Revenue Share</h3><div class="chart-box tall"><canvas id="cSegBar"></canvas></div></div>
+      <div class="card"><h3>Top 10 Categories by Revenue</h3><div class="chart-box tall"><canvas id="cCat"></canvas></div></div>
+    </div>
+    <div class="card"><h3>Segment Performance Table</h3><table id="tSeg"></table></div>
+  </div>
+
+  <div class="panel" id="p-shops">
+    <div class="filter-row">
+      <label>Sort by:</label>
+      <select id="shopSort">
+        <option value="total">Total Revenue</option>
+        <option value="chicken">Chicken Revenue</option>
+        <option value="beef">Beef Revenue</option>
+        <option value="egg">Egg Revenue</option>
+        <option value="trading">Trading Revenue</option>
+        <option value="mwk_per_kg">Avg Price / kg</option>
+        <option value="avg_basket">Avg Basket Size</option>
+      </select>
+      <label>Search:</label>
+      <input id="shopSearch" placeholder="Type shop name…" style="width:240px">
+    </div>
+    <div class="card"><h3>All Shops by Revenue — Stacked by Segment (largest → smallest)</h3><div style="position:relative;height:780px"><canvas id="cShop"></canvas></div></div>
+    <div class="card" style="margin-top:16px"><h3>Shop Performance — Full Breakdown</h3><table id="tShop"></table></div>
+    <div class="card" style="margin-top:16px">
+      <h3>📊 Monthly Sales per Shop — Stacked by Segment</h3>
+      <div style="font-size:11px;color:#64748b;margin-bottom:10px">All 31 shops, sorted by total revenue. Each mini chart shows month-on-month revenue split by segment: <span style="color:#16a34a;font-weight:600">Chicken</span> · <span style="color:#dc2626;font-weight:600">Beef</span> · <span style="color:#f59e0b;font-weight:600">Egg</span> · <span style="color:#7c3aed;font-weight:600">Trading</span></div>
+      <div id="shopMonthGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="p-products">
+    <div class="filter-row">
+      <label>Sort by:</label>
+      <select id="prodSort">
+        <option value="rev">Revenue (highest)</option>
+        <option value="qty">Quantity</option>
+        <option value="wght">Volume (kg)</option>
+        <option value="mwk_per_kg">Avg Price / kg</option>
+        <option value="avg_basket">Avg Basket Size</option>
+        <option value="baskets">Baskets</option>
+      </select>
+      <label>Filter segment:</label>
+      <select id="prodSeg"><option value="">All</option><option>Chicken</option><option>Beef</option><option>Egg</option><option>Trading</option></select>
+      <label>Search:</label>
+      <input id="prodSearch" placeholder="Product name…" style="width:240px">
+    </div>
+    <div class="card"><h3>🏆 All Products by Revenue <span id="prodCount" style="font-weight:400;color:#64748b;margin-left:8px"></span></h3><table id="tTop"></table></div>
+  </div>
+
+  <div class="panel" id="p-time">
+    <div class="insight">💡 Peak selling hour is typically around midday. Most revenue is generated between 09:00 and 17:00. Region overlays reveal where each area's rhythm differs.</div>
+    <div class="grid2">
+      <div class="card"><h3>Hourly Revenue Pattern — by Region</h3><div class="chart-box tall"><canvas id="cHr"></canvas></div></div>
+      <div class="card"><h3>Hourly Volume Pattern — by Region</h3><div class="chart-box tall"><canvas id="cHrQty"></canvas></div></div>
+    </div>
+    <div class="card"><h3>Daily Revenue & Quantity</h3><div class="chart-box tall"><canvas id="cDay2"></canvas></div></div>
+    <div class="card" style="margin-top:16px">
+      <h3>Hourly Pattern per Shop — Revenue (bars) + Avg Basket Size (line)</h3>
+      <div style="font-size:11px;color:#64748b;margin-bottom:10px">All 31 shops, sorted by total revenue. Green bars = MWK revenue per hour. Orange line = avg basket size (MWK per unique invoice) that hour.</div>
+      <div id="shopMiniGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="p-regions">
+    <div class="grid2">
+      <div class="card"><h3>Revenue by Region</h3><div class="chart-box tall"><canvas id="cRegPie"></canvas></div></div>
+      <div class="card"><h3>Quantity by Region</h3><div class="chart-box tall"><canvas id="cRegQty"></canvas></div></div>
+    </div>
+    <div class="card" style="margin-top:16px"><h3>📈 Month-on-Month Sales by Region</h3><div class="chart-box tall"><canvas id="cRegMonth"></canvas></div></div>
+    <div class="card" style="margin-top:16px"><h3>Region Performance</h3><table id="tReg"></table></div>
+  </div>
+
+  <div class="panel" id="p-data">
+    <div class="card"><h3>Daily Summary</h3><table id="tDay"></table></div>
+    <div class="card" style="margin-top:16px"><h3>Hourly Summary</h3><table id="tHr"></table></div>
+  </div>
+
+  <div class="footer">GoFresh RetailMax Sales Intelligence · Generated by generate_dashboard.py</div>
+
+</div>
+
+<script>
+// ==========================================================================
+// Data payload — raw indexed rows + lookup arrays
+// ==========================================================================
+const PAYLOAD = __PAYLOAD__;
+const L = PAYLOAD.lookups;      // { shops, regs, prods, segs, cats, dates }
+const ROWS = PAYLOAD.rows;      // [dateIdx, hour, wd, shopIdx, regIdx, prodIdx, segIdx, catIdx, qty, amt, wght, invIdx]
+
+// Date filter state — default to first-day-of-earliest-data-year through
+// last data date so the Executive tab shows multi-month structure by default
+// even when the raw data span is short.
+const _dataStart = L.dates[0];
+const _dataEnd = L.dates[L.dates.length - 1];
+const _earliestYear = _dataStart.slice(0, 4);
+const _yearStart = _earliestYear + "-01-01";
+let dateStart = (_dataStart < _yearStart) ? _dataStart : _yearStart;
+let dateEnd = _dataEnd;
+
+// Chart instances kept for tear-down between renders
+const CHARTS = {};
+
+// Formatters
+const fmt = n => n.toLocaleString('en-US', {maximumFractionDigits:0});
+const fmtM = n => (n>=1e6 ? (n/1e6).toFixed(1)+'M' : n>=1e3 ? (n/1e3).toFixed(0)+'K' : Math.round(n));
+const segPill = s => {const m={Chicken:'chk',Beef:'bf',Egg:'eg',Trading:'tr'};return `<span class="pill ${m[s]||''}">${s||''}</span>`};
+
+Chart.defaults.font.family = "-apple-system,'Segoe UI',Roboto,sans-serif";
+Chart.defaults.font.size = 11;
+Chart.defaults.color = '#475569';
+const PAL = ['#16a34a','#dc2626','#f59e0b','#7c3aed','#0891b2','#db2777','#65a30d','#2563eb','#ea580c','#0d9488'];
+const REGION_COLORS = {'Central':'#16a34a','Southern':'#dc2626','Southen':'#dc2626','South':'#dc2626','North':'#f59e0b','Northern':'#f59e0b'};
+const regionColor = r => REGION_COLORS[r] || PAL[Object.keys(D.region_hour||{}).indexOf(r) % PAL.length];
+
+const WD_NAMES = {1:'Sun',2:'Mon',3:'Tue',4:'Wed',5:'Thu',6:'Fri',7:'Sat'};
+
+// Doughnut % label plugin
+const doughnutPctLabels = {
+  id:'doughnutPctLabels',
+  afterDatasetsDraw(chart){
+    const {ctx}=chart, meta=chart.getDatasetMeta(0), values=chart.data.datasets[0].data;
+    const total=values.reduce((a,b)=>a+b,0); if(!total) return;
+    meta.data.forEach((arc,i)=>{
+      const pct=values[i]/total*100; if(pct<3) return;
+      const {x,y}=arc.getCenterPoint();
+      ctx.save();
+      ctx.fillStyle='#fff'; ctx.font='bold 13px -apple-system,Segoe UI,Roboto,sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.shadowColor='rgba(0,0,0,.35)'; ctx.shadowBlur=3;
+      ctx.fillText(pct.toFixed(1)+'%',x,y);
+      ctx.restore();
+    });
+  }
+};
+
+// Pie-slice label plugin — shows value (line 1) + percentage (line 2) inside each slice
+const pieValuePctLabels = {
+  id:'pieValuePctLabels',
+  afterDatasetsDraw(chart){
+    const {ctx}=chart, meta=chart.getDatasetMeta(0), values=chart.data.datasets[0].data;
+    const total=values.reduce((a,b)=>a+b,0); if(!total) return;
+    meta.data.forEach((arc,i)=>{
+      const v=values[i]; const pct=v/total*100; if(pct<3) return;
+      const {x,y}=arc.getCenterPoint();
+      ctx.save();
+      ctx.fillStyle='#fff';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.shadowColor='rgba(0,0,0,.5)'; ctx.shadowBlur=3;
+      // Line 1: value (using fmtM for compact display)
+      ctx.font='bold 13px -apple-system,Segoe UI,Roboto,sans-serif';
+      ctx.fillText(fmtM(v), x, y - 9);
+      // Line 2: percentage
+      ctx.font='11px -apple-system,Segoe UI,Roboto,sans-serif';
+      ctx.fillText(pct.toFixed(1)+'%', x, y + 9);
+      ctx.restore();
+    });
+  }
+};
+
+// ==========================================================================
+// computeD — the core aggregator. Takes the date-range filter and produces
+// the same "D" object shape the rest of the code expects.
+// ==========================================================================
+let D = null;
+
+function computeD(startDate, endDate) {
+  // Filter is applied by string comparison — works for any date range,
+  // including ranges that extend beyond the actual data window.
+
+  // Aggregation buckets
+  const segRev = new Map(), segQty = new Map(), segWght = new Map();
+  const dayRev = new Map(), dayQty = new Map();
+  const hourRev = new Map(), hourQty = new Map();
+  const shopRev = new Map(), shopWght = new Map();
+  const shopSegRev = new Map();  // shop -> Map(segment -> revenue)
+  const shopMonthSegRev = new Map();  // shop -> Map(monthKey -> Map(segment -> revenue))
+  const shopInv = new Map();     // shop -> Set(invoices)
+  const shopRegion = new Map();
+  const shopHourRev = new Map(); // shop -> Map(hour -> revenue)
+  const shopHourInv = new Map(); // shop -> Map(hour -> Set(invoices))
+  const regionRev = new Map(), regionQty = new Map();
+  const regionHourRev = new Map(), regionHourQty = new Map();
+  const regionMonthRev = new Map();  // region -> Map(monthKey -> revenue)
+  const prodRev = new Map(), prodQty = new Map(), prodWght = new Map();
+  const prodInv = new Map();
+  const prodMeta = new Map();  // product -> {seg, cat}
+  const catRev = new Map();
+  const wdRev = new Map();
+  const daysSet = new Set();
+  // Month-level buckets (Executive tab)
+  const monthRev = new Map();       // 'YYYY-MM' -> revenue
+  const monthVol = new Map();       // 'YYYY-MM' -> kg
+  const monthShops = new Map();     // 'YYYY-MM' -> Set(shopIdx)
+  const monthDays = new Map();      // 'YYYY-MM' -> Set(dateStr)
+
+  let nRows = 0;
+
+  const getMap = (m, k) => { let v=m.get(k); if(!v){v=new Map(); m.set(k,v);} return v; };
+  const getSet = (m, k) => { let v=m.get(k); if(!v){v=new Set(); m.set(k,v);} return v; };
+  const add = (m, k, v) => m.set(k, (m.get(k)||0)+v);
+
+  for (let i=0; i<ROWS.length; i++) {
+    const r = ROWS[i];
+    const dIdx = r[0];
+    const dateStr = L.dates[dIdx];
+    if (dateStr < startDate || dateStr > endDate) continue;
+
+    const hour = r[1], wd = r[2];
+    const shop = r[3] >= 0 ? L.shops[r[3]] : null;
+    const region = r[4] >= 0 ? L.regs[r[4]] : null;
+    const prod = r[5] >= 0 ? L.prods[r[5]] : null;
+    const seg = r[6] >= 0 ? L.segs[r[6]] : null;
+    const cat = r[7] >= 0 ? L.cats[r[7]] : null;
+    const qty = r[8], amt = r[9], wght = r[10];
+    const inv = r[11];
+
+    daysSet.add(dateStr);
+    // Monthly rollups
+    const monthKey = dateStr.slice(0, 7);   // 'YYYY-MM'
+    add(monthRev, monthKey, amt);
+    add(monthVol, monthKey, wght);
+    getSet(monthDays, monthKey).add(dateStr);
+    if (shop && r[3] >= 0) getSet(monthShops, monthKey).add(r[3]);
+    nRows++;
+
+    if (seg) { add(segRev, seg, amt); add(segQty, seg, qty); add(segWght, seg, wght); }
+    add(dayRev, dateStr, amt); add(dayQty, dateStr, qty);
+    if (hour >= 0) { add(hourRev, hour, amt); add(hourQty, hour, qty); }
+    if (shop) {
+      add(shopRev, shop, amt); add(shopWght, shop, wght);
+      if (region) shopRegion.set(shop, region);
+      if (seg) {
+        add(getMap(shopSegRev, shop), seg, amt);
+        // shop × month × segment revenue
+        add(getMap(getMap(shopMonthSegRev, shop), monthKey), seg, amt);
+      }
+      if (inv >= 0) getSet(shopInv, shop).add(inv);
+      if (hour >= 0) {
+        add(getMap(shopHourRev, shop), hour, amt);
+        if (inv >= 0) getSet(getMap(shopHourInv, shop), hour).add(inv);
+      }
+    }
+    if (region) {
+      add(regionRev, region, amt); add(regionQty, region, qty);
+      add(getMap(regionMonthRev, region), monthKey, amt);
+      if (hour >= 0) {
+        add(getMap(regionHourRev, region), hour, amt);
+        add(getMap(regionHourQty, region), hour, qty);
+      }
+    }
+    if (prod) {
+      add(prodRev, prod, amt); add(prodQty, prod, qty); add(prodWght, prod, wght);
+      if (inv >= 0) getSet(prodInv, prod).add(inv);
+      if (!prodMeta.has(prod)) prodMeta.set(prod, {seg, cat});
+    }
+    if (cat) add(catRev, cat, amt);
+    if (wd >= 0) add(wdRev, wd, amt);
+  }
+
+  // Build the D output object matching the shape the chart code expects
+  const days = [...daysSet].sort();
+  const hoursSorted = [...hourRev.keys()].sort((a,b)=>a-b);
+
+  const segsClean = [...segRev.entries()].filter(([k])=>k && k!=='#N/A');
+  const segLabels = segsClean.map(([k])=>k);
+  const totalRev = segsClean.reduce((a,[,v])=>a+v, 0);
+  const totalQty = segLabels.reduce((a,s)=>a+(segQty.get(s)||0), 0);
+  const totalWght = segLabels.reduce((a,s)=>a+(segWght.get(s)||0), 0);
+
+  const regionLabels = [...regionRev.keys()];
+  const regionData = regionLabels.map(r=>regionRev.get(r));
+  const regionQtyArr = regionLabels.map(r=>regionQty.get(r)||0);
+
+  // Region-level shop counts
+  const regShops = {};
+  for (const [shop, reg] of shopRegion) {
+    if ((shopRev.get(shop)||0) > 0) regShops[reg] = (regShops[reg]||0)+1;
+  }
+
+  // Shop rows
+  const shopsFull = [...shopRev.entries()]
+    .sort((a,b)=>b[1]-a[1])
+    .map(([shop, total]) => {
+      const segMap = shopSegRev.get(shop) || new Map();
+      const w = shopWght.get(shop) || 0;
+      const baskets = (shopInv.get(shop) || new Set()).size;
+      return {
+        shop, total,
+        chicken: segMap.get('Chicken')||0,
+        beef: segMap.get('Beef')||0,
+        egg: segMap.get('Egg')||0,
+        trading: segMap.get('Trading')||0,
+        wght: w,
+        mwk_per_kg: w ? total/w : 0,
+        baskets,
+        avg_basket: baskets ? total/baskets : 0,
+      };
+    });
+
+  // Products
+  const productsFull = [...prodRev.entries()]
+    .sort((a,b)=>b[1]-a[1])
+    .map(([p, rev]) => {
+      const w = prodWght.get(p) || 0;
+      const baskets = (prodInv.get(p) || new Set()).size;
+      const meta = prodMeta.get(p) || {};
+      return {
+        name: p, rev,
+        qty: prodQty.get(p)||0,
+        wght: w,
+        mwk_per_kg: w ? rev/w : 0,
+        baskets,
+        avg_basket: baskets ? rev/baskets : 0,
+        seg: meta.seg || '', cat: meta.cat || '',
+        pct: totalRev ? rev/totalRev*100 : 0,
+      };
+    });
+
+  // Region hour series aligned to hoursSorted
+  const regionHour = {};
+  for (const reg of regionLabels) {
+    const rvMap = regionHourRev.get(reg) || new Map();
+    const qtMap = regionHourQty.get(reg) || new Map();
+    regionHour[reg] = {
+      rev: hoursSorted.map(h => rvMap.get(h)||0),
+      qty: hoursSorted.map(h => qtMap.get(h)||0),
+    };
+  }
+
+  // Shop hourly series
+  const shopHour = shopsFull.map(sr => {
+    const rvMap = shopHourRev.get(sr.shop) || new Map();
+    const invMap = shopHourInv.get(sr.shop) || new Map();
+    return {
+      shop: sr.shop, total: sr.total,
+      rev: hoursSorted.map(h => rvMap.get(h)||0),
+      avg_basket: hoursSorted.map(h => {
+        const r = rvMap.get(h)||0;
+        const b = (invMap.get(h) || new Set()).size;
+        return b ? r/b : 0;
+      }),
+    };
+  });
+
+  // Top categories
+  const topCats = [...catRev.entries()].sort((a,b)=>b[1]-a[1]).slice(0,10);
+
+  // Weekday
+  const wdKeys = [...wdRev.keys()].sort((a,b)=>a-b);
+
+  // Total unique baskets (shop-level uniqueness is what we count, so sum)
+  const totalBaskets = shopsFull.reduce((a,s)=>a+s.baskets, 0);
+
+  // Build the FULL month timeline between the filter's start and end,
+  // so months with zero activity still appear (as zero rows/bars).
+  const startMonth = startDate.slice(0, 7);
+  const endMonth = endDate.slice(0, 7);
+  const allMonths = [];
+  {
+    let cur = startMonth;
+    for (let guard = 0; guard < 60; guard++) {
+      allMonths.push(cur);
+      if (cur >= endMonth) break;
+      const [y, m] = cur.split('-').map(Number);
+      cur = m === 12 ? `${y+1}-01` : `${y}-${String(m+1).padStart(2, '0')}`;
+    }
+  }
+
+  // Region × Month revenue matrix (aligned to allMonths for chart)
+  const regionMonth = {};
+  for (const reg of regionLabels) {
+    const map = regionMonthRev.get(reg) || new Map();
+    regionMonth[reg] = allMonths.map(k => map.get(k) || 0);
+  }
+
+  // Shop × Month × Segment revenue matrix — largest shops first,
+  // each shop gets 4 arrays (Chicken/Beef/Egg/Trading) aligned to allMonths.
+  const shopMonth = shopsFull.map(sr => {
+    const monthMap = shopMonthSegRev.get(sr.shop) || new Map();
+    const seriesFor = seg => allMonths.map(k => (monthMap.get(k) || new Map()).get(seg) || 0);
+    return {
+      shop: sr.shop,
+      total: sr.total,
+      chicken: seriesFor('Chicken'),
+      beef: seriesFor('Beef'),
+      egg: seriesFor('Egg'),
+      trading: seriesFor('Trading'),
+    };
+  });
+
+  return {
+    totals: {
+      rev: totalRev, qty: totalQty, rows: nRows,
+      n_days: days.length,
+      n_shops: shopsFull.filter(s=>s.total>0).length,
+      wght: totalWght,
+      nsv_per_kg: totalWght ? totalRev/totalWght : 0,
+      baskets: totalBaskets,
+    },
+    segments: {
+      labels: segLabels,
+      data: segLabels.map(s=>segRev.get(s)),
+      qty: segLabels.map(s=>segQty.get(s)||0),
+      wght: segLabels.map(s=>segWght.get(s)||0),
+    },
+    regions: {
+      labels: regionLabels,
+      data: regionData,
+      qty: regionQtyArr,
+      n_shops: regionLabels.map(r=>regShops[r]||0),
+      avg_per_shop: regionLabels.map(r=>regShops[r] ? regionRev.get(r)/regShops[r] : 0),
+    },
+    days: {
+      labels: days,
+      rev: days.map(d=>dayRev.get(d)||0),
+      qty: days.map(d=>dayQty.get(d)||0),
+    },
+    hours: {
+      labels: hoursSorted.map(h=>String(h).padStart(2,'0')+':00'),
+      rev: hoursSorted.map(h=>hourRev.get(h)||0),
+      qty: hoursSorted.map(h=>hourQty.get(h)||0),
+    },
+    weekdays: {
+      labels: wdKeys.map(k=>WD_NAMES[k]||String(k)),
+      rev: wdKeys.map(k=>wdRev.get(k)||0),
+    },
+    cats: {
+      labels: topCats.map(c=>c[0]),
+      data: topCats.map(c=>c[1]),
+    },
+    shops: shopsFull,
+    products: productsFull,
+    region_hour: regionHour,
+    shop_hour: shopHour,
+    shop_month: shopMonth,
+    region_month: regionMonth,
+    month_labels: allMonths.map(k => { const d = new Date(k + '-01'); return d.toLocaleString('en-US', {month:'short', year:'2-digit'}); }),
+    date_range: days.length ? `${days[0]} → ${days[days.length-1]}` : '(no data)',
+    months: allMonths.map(k => {
+      const rev = monthRev.get(k) || 0;
+      const vol = monthVol.get(k) || 0;
+      const ns = (monthShops.get(k) || new Set()).size;
+      const nd = (monthDays.get(k) || new Set()).size;
+      return {
+        key: k,
+        label: (() => { const d = new Date(k + '-01'); return d.toLocaleString('en-US', {month:'short', year:'2-digit'}); })(),
+        turnover: rev,
+        volume: vol,
+        n_shops: ns,
+        n_days: nd,
+        mwk_per_kg: vol ? rev/vol : 0,
+        avg_daily_per_shop: (ns && nd) ? rev/(ns*nd) : 0,
+      };
+    }),
+  };
+}
+
+// ==========================================================================
+// Utility: destroy all charts before re-render
+// ==========================================================================
+function destroyCharts() {
+  Object.values(CHARTS).forEach(c => { try { c.destroy(); } catch(e){} });
+  Object.keys(CHARTS).forEach(k => delete CHARTS[k]);
+}
+
+// ==========================================================================
+// renderAll — rebuilds every KPI, chart, and table using the current D
+// ==========================================================================
+function renderAll() {
+  destroyCharts();
+  D = computeD(dateStart, dateEnd);
+
+  // Header subtitle
+  document.getElementById('hdrSub').textContent =
+    `${D.date_range} · ${fmt(D.totals.rows)} transactions · ${D.totals.n_shops} shops · ${D.totals.n_days} days`;
+
+  // Filter bar summary
+  document.getElementById('filterSummary').textContent =
+    `Showing ${D.totals.n_days} day(s) · ${fmt(D.totals.rows)} rows · ${fmt(Math.round(D.totals.rev))} MWK`;
+
+  // KPIs
+  document.getElementById('kRev').textContent  = fmt(Math.round(D.totals.rev)) + ' MWK';
+  document.getElementById('kRevSub').textContent = D.totals.n_days + '-day period';
+  document.getElementById('kQty').textContent  = fmt(D.totals.qty) + ' units';
+  document.getElementById('kAvg').textContent  = fmt(Math.round(D.totals.rev/Math.max(D.totals.n_days,1))) + ' MWK';
+  document.getElementById('kAvgSub').textContent = `Across ${D.totals.n_days} days`;
+  document.getElementById('kTx').textContent   = fmt(D.totals.rows);
+  document.getElementById('kBasket').textContent = fmt(Math.round(D.totals.rev / Math.max(D.totals.rows,1))) + ' MWK';
+  document.getElementById('kShops').textContent = D.totals.n_shops;
+  document.getElementById('kNsvKg').textContent = fmt(Math.round(D.totals.nsv_per_kg)) + ' MWK';
+  document.getElementById('kNsvKgSub').textContent = 'On ' + fmt(Math.round(D.totals.wght)) + ' kg volume';
+
+  // ----- Executive summary tab -----
+  (() => {
+    const M = D.months;
+    // Header KPIs
+    document.getElementById('eMonths').textContent = M.length;
+    document.getElementById('eMonthsSub').textContent = M.length
+      ? (M[0].label + (M.length>1 ? ' → ' + M[M.length-1].label : ''))
+      : '(no data)';
+    const sumRev = M.reduce((a,m)=>a+m.turnover, 0);
+    const sumVol = M.reduce((a,m)=>a+m.volume, 0);
+    const sumShopDays = M.reduce((a,m)=>a + m.n_shops*m.n_days, 0);
+    document.getElementById('eTurn').textContent = fmt(Math.round(sumRev)) + ' MWK';
+    document.getElementById('eVol').textContent = fmt(Math.round(sumVol)) + ' kg';
+    document.getElementById('eNsv').textContent = fmt(sumVol ? Math.round(sumRev/sumVol) : 0) + ' MWK';
+    document.getElementById('eDaily').textContent = fmt(sumShopDays ? Math.round(sumRev/sumShopDays) : 0) + ' MWK';
+    document.getElementById('eDailySub').textContent = 'Blended, weighted by shop-days';
+
+    // Table
+    const rows = M.map(m => `<tr>
+      <td><strong>${m.label}</strong></td>
+      <td class="num">${fmt(m.n_shops)}</td>
+      <td class="num">${fmt(m.n_days)}</td>
+      <td class="num">${fmt(Math.round(m.volume))}</td>
+      <td class="num">${fmt(Math.round(m.turnover))}</td>
+      <td class="num">${fmt(Math.round(m.mwk_per_kg))}</td>
+      <td class="num">${fmt(Math.round(m.avg_daily_per_shop))}</td>
+    </tr>`).join('');
+    const totalRow = `<tr style="background:#f0fdf4;font-weight:700;border-top:2px solid #16a34a">
+      <td><strong>TOTAL</strong></td>
+      <td class="num">${M.length ? Math.max(...M.map(m=>m.n_shops)) : 0} <span style="font-weight:400;color:#64748b;font-size:10px">(peak)</span></td>
+      <td class="num">${fmt(M.reduce((a,m)=>a+m.n_days,0))}</td>
+      <td class="num">${fmt(Math.round(sumVol))}</td>
+      <td class="num">${fmt(Math.round(sumRev))}</td>
+      <td class="num">${fmt(sumVol?Math.round(sumRev/sumVol):0)}</td>
+      <td class="num">${fmt(sumShopDays?Math.round(sumRev/sumShopDays):0)}</td>
+    </tr>`;
+    document.getElementById('tExec').innerHTML =
+      '<thead><tr>' +
+      '<th>Month</th>' +
+      '<th class="num"># Shops</th>' +
+      '<th class="num">Active Days</th>' +
+      '<th class="num">Volume (kg)</th>' +
+      '<th class="num">Turnover (MWK)</th>' +
+      '<th class="num">MWK / kg (NSV)</th>' +
+      '<th class="num">Avg Daily / Shop</th>' +
+      '</tr></thead><tbody>' + rows + totalRow + '</tbody>';
+
+    // Charts
+    const labels = M.map(m=>m.label);
+    const barOpts = {maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>fmtM(v)}}}};
+    const lineOpts = {maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmtM(v)}}}};
+
+    CHARTS.cExecTurn = new Chart(document.getElementById('cExecTurn'),{type:'bar',
+      data:{labels,datasets:[{data:M.map(m=>m.turnover),backgroundColor:'#16a34a'}]},options:barOpts});
+
+    CHARTS.cExecVol = new Chart(document.getElementById('cExecVol'),{type:'bar',
+      data:{labels,datasets:[{data:M.map(m=>m.volume),backgroundColor:'#0891b2'}]},options:barOpts});
+
+    CHARTS.cExecNsv = new Chart(document.getElementById('cExecNsv'),{type:'line',
+      data:{labels,datasets:[{data:M.map(m=>m.mwk_per_kg),borderColor:'#0f766e',backgroundColor:'rgba(15,118,110,.12)',tension:.3,fill:true,pointRadius:5,borderWidth:2}]},
+      options:{maintainAspectRatio:false,plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:c=>fmt(Math.round(c.parsed.y))+' MWK / kg'}}},
+        scales:{y:{beginAtZero:true,ticks:{callback:v=>fmtM(v)}}}}});
+
+    CHARTS.cExecDaily = new Chart(document.getElementById('cExecDaily'),{type:'line',
+      data:{labels,datasets:[{data:M.map(m=>m.avg_daily_per_shop),borderColor:'#7c3aed',backgroundColor:'rgba(124,58,237,.12)',tension:.3,fill:true,pointRadius:5,borderWidth:2}]},
+      options:{maintainAspectRatio:false,plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:c=>fmt(Math.round(c.parsed.y))+' MWK / shop / day'}}},
+        scales:{y:{beginAtZero:true,ticks:{callback:v=>fmtM(v)}}}}});
+
+    CHARTS.cExecShops = new Chart(document.getElementById('cExecShops'),{type:'bar',
+      data:{labels,datasets:[{data:M.map(m=>m.n_shops),backgroundColor:'#f59e0b'}]},
+      options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+  })();
+
+  // ----- Overview charts -----
+  CHARTS.cDay = new Chart(document.getElementById('cDay'),{type:'line',
+    data:{labels:D.days.labels.map(d=>d.slice(5)),
+          datasets:[{label:'Revenue',data:D.days.rev,borderColor:'#16a34a',backgroundColor:'rgba(22,163,74,.1)',tension:.3,fill:true,pointRadius:4}]},
+    options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>fmtM(v)}}}}});
+
+  CHARTS.cSeg = new Chart(document.getElementById('cSeg'),{type:'doughnut',
+    data:{labels:D.segments.labels,datasets:[{data:D.segments.data,backgroundColor:PAL,borderWidth:2,borderColor:'#fff'}]},
+    plugins:[doughnutPctLabels],
+    options:{maintainAspectRatio:false,plugins:{legend:{position:'right'},
+      tooltip:{callbacks:{label:c=>c.label+': '+fmt(Math.round(c.parsed))+' MWK ('+(D.totals.rev?(c.parsed/D.totals.rev*100).toFixed(1):0)+'%)'}}}}});
+
+  CHARTS.cWd = new Chart(document.getElementById('cWd'),{type:'bar',
+    data:{labels:D.weekdays.labels,datasets:[{data:D.weekdays.rev,backgroundColor:'#16a34a'}]},
+    options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>fmtM(v)}}}}});
+
+  CHARTS.cReg = new Chart(document.getElementById('cReg'),{type:'doughnut',
+    data:{labels:D.regions.labels,datasets:[{data:D.regions.data,backgroundColor:PAL}]},
+    options:{maintainAspectRatio:false,plugins:{legend:{position:'right'}}}});
+
+  // ----- Segments tab -----
+  CHARTS.cSegBar = new Chart(document.getElementById('cSegBar'),{type:'bar',
+    data:{labels:D.segments.labels,datasets:[{data:D.segments.data,backgroundColor:PAL}]},
+    options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>fmtM(v)}}}}});
+
+  CHARTS.cCat = new Chart(document.getElementById('cCat'),{type:'bar',
+    data:{labels:D.cats.labels,datasets:[{data:D.cats.data,backgroundColor:'#0f766e'}]},
+    options:{maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>fmtM(v)}}}}});
+
+  (()=>{
+    const total = D.totals.rev;
+    let sumR=0,sumQ=0,sumW=0;
+    const rows = D.segments.labels.map((s,i)=>{
+      const r = D.segments.data[i], q = D.segments.qty[i], w = D.segments.wght[i];
+      sumR+=r; sumQ+=q; sumW+=w;
+      return `<tr><td>${segPill(s)}</td>
+        <td class="num">${fmt(Math.round(r))}</td>
+        <td class="num">${fmt(q)}</td>
+        <td class="num">${fmt(Math.round(w))}</td>
+        <td class="num">${total?(r/total*100).toFixed(1):'0.0'}%</td>
+        <td class="num">${q?fmt(Math.round(r/q)):'-'}</td>
+        <td class="num">${w?fmt(Math.round(r/w)):'-'}</td></tr>`;
+    }).join('');
+    const totalRow = `<tr style="background:#f0fdf4;font-weight:700;border-top:2px solid #16a34a">
+        <td><strong>TOTAL</strong></td>
+        <td class="num">${fmt(Math.round(sumR))}</td>
+        <td class="num">${fmt(sumQ)}</td>
+        <td class="num">${fmt(Math.round(sumW))}</td>
+        <td class="num">100.0%</td>
+        <td class="num">${sumQ?fmt(Math.round(sumR/sumQ)):'-'}</td>
+        <td class="num">${sumW?fmt(Math.round(sumR/sumW)):'-'}</td></tr>`;
+    document.getElementById('tSeg').innerHTML =
+      '<thead><tr><th>Segment</th><th class="num">Revenue (MWK)</th><th class="num">Qty</th><th class="num">Volume (kg)</th><th class="num">% Share</th><th class="num">Avg Price / Unit</th><th class="num">MWK / kg (NSV)</th></tr></thead><tbody>'+rows+totalRow+'</tbody>';
+  })();
+
+  // ----- Shops tab -----
+  const shopsSorted = [...D.shops].sort((a,b)=>b.total-a.total);
+  CHARTS.cShop = new Chart(document.getElementById('cShop'),{type:'bar',
+    data:{labels:shopsSorted.map(s=>s.shop),
+      datasets:[
+        {label:'Chicken',data:shopsSorted.map(s=>s.chicken),backgroundColor:'#16a34a',stack:'s'},
+        {label:'Beef',   data:shopsSorted.map(s=>s.beef),   backgroundColor:'#dc2626',stack:'s'},
+        {label:'Egg',    data:shopsSorted.map(s=>s.egg),    backgroundColor:'#f59e0b',stack:'s'},
+        {label:'Trading',data:shopsSorted.map(s=>s.trading),backgroundColor:'#7c3aed',stack:'s'},
+      ]},
+    options:{maintainAspectRatio:false,indexAxis:'y',
+      plugins:{legend:{position:'top'},
+        tooltip:{callbacks:{
+          label:c=>c.dataset.label+': '+fmt(Math.round(c.parsed.x))+' MWK',
+          footer:items=>{const t=items.reduce((a,i)=>a+i.parsed.x,0); return 'Total: '+fmt(Math.round(t))+' MWK';}
+        }}},
+      scales:{x:{stacked:true,ticks:{callback:v=>fmtM(v)}},
+        y:{stacked:true,ticks:{font:{size:10},autoSkip:false}}}}});
+  renderShops();
+
+  // Monthly per-shop stacked mini charts (Chicken/Beef/Egg/Trading)
+  const shopMonthGrid = document.getElementById('shopMonthGrid');
+  shopMonthGrid.innerHTML = '';
+  D.shop_month.forEach((s, i) => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'background:#fafafa;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px';
+    wrap.innerHTML = `
+      <div style="font-size:11px;font-weight:600;color:#0f172a;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${s.shop}">${s.shop}</div>
+      <div style="font-size:10px;color:#64748b;margin-bottom:6px">Total: ${fmt(Math.round(s.total))} MWK</div>
+      <div style="position:relative;height:170px"><canvas id="miniShopMonth_${i}"></canvas></div>`;
+    shopMonthGrid.appendChild(wrap);
+    CHARTS['miniShopMonth_'+i] = new Chart(document.getElementById('miniShopMonth_'+i), {
+      type:'bar',
+      data:{labels:D.month_labels, datasets:[
+        {label:'Chicken', data:s.chicken, backgroundColor:'#16a34a', stack:'s'},
+        {label:'Beef',    data:s.beef,    backgroundColor:'#dc2626', stack:'s'},
+        {label:'Egg',     data:s.egg,     backgroundColor:'#f59e0b', stack:'s'},
+        {label:'Trading', data:s.trading, backgroundColor:'#7c3aed', stack:'s'},
+      ]},
+      options:{maintainAspectRatio:false,
+        plugins:{legend:{display:false},
+          tooltip:{callbacks:{
+            label:c=>c.dataset.label+': '+fmt(Math.round(c.parsed.y))+' MWK',
+            footer:items=>{const t=items.reduce((a,i)=>a+i.parsed.y,0); return 'Total: '+fmt(Math.round(t))+' MWK';}
+          }}},
+        scales:{
+          x:{stacked:true,ticks:{font:{size:8},maxRotation:0,autoSkip:true,maxTicksLimit:12}},
+          y:{stacked:true,beginAtZero:true,ticks:{font:{size:9},callback:v=>fmtM(v)}}
+        }}});
+  });
+
+  // ----- Products tab -----
+  renderProducts();
+
+  // ----- Time tab -----
+  const regionKeys = Object.keys(D.region_hour);
+  const hourlyRevDatasets = regionKeys.map(r => ({
+    label:r, data:D.region_hour[r].rev,
+    borderColor:regionColor(r), backgroundColor:regionColor(r)+'22',
+    tension:.3, fill:false, pointRadius:3, borderWidth:2}));
+  const hourlyQtyDatasets = regionKeys.map(r => ({
+    label:r, data:D.region_hour[r].qty,
+    borderColor:regionColor(r), backgroundColor:regionColor(r)+'22',
+    tension:.3, fill:false, pointRadius:3, borderWidth:2}));
+
+  CHARTS.cHr = new Chart(document.getElementById('cHr'),{type:'line',
+    data:{labels:D.hours.labels, datasets:hourlyRevDatasets},
+    options:{maintainAspectRatio:false,plugins:{legend:{position:'top'},
+      tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt(Math.round(c.parsed.y))+' MWK'}}},
+      scales:{y:{ticks:{callback:v=>fmtM(v)}}}}});
+
+  CHARTS.cHrQty = new Chart(document.getElementById('cHrQty'),{type:'line',
+    data:{labels:D.hours.labels, datasets:hourlyQtyDatasets},
+    options:{maintainAspectRatio:false,plugins:{legend:{position:'top'},
+      tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt(Math.round(c.parsed.y))+' units'}}}}});
+
+  CHARTS.cDay2 = new Chart(document.getElementById('cDay2'),{
+    data:{labels:D.days.labels,datasets:[
+      {type:'bar',label:'Revenue (MWK)',data:D.days.rev,backgroundColor:'#16a34a',yAxisID:'y'},
+      {type:'line',label:'Quantity',data:D.days.qty,borderColor:'#dc2626',backgroundColor:'#dc2626',yAxisID:'y1',tension:.3}]},
+    options:{maintainAspectRatio:false,scales:{y:{position:'left',ticks:{callback:v=>fmtM(v)}},y1:{position:'right',grid:{display:false}}}}});
+
+  // Mini per-shop hourly charts
+  const grid = document.getElementById('shopMiniGrid');
+  grid.innerHTML = '';
+  D.shop_hour.forEach((s, i) => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'background:#fafafa;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px';
+    wrap.innerHTML = `
+      <div style="font-size:11px;font-weight:600;color:#0f172a;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${s.shop}">${s.shop}</div>
+      <div style="font-size:10px;color:#64748b;margin-bottom:6px">Total: ${fmt(Math.round(s.total))} MWK</div>
+      <div style="position:relative;height:150px"><canvas id="miniShop_${i}"></canvas></div>`;
+    grid.appendChild(wrap);
+    CHARTS['miniShop_'+i] = new Chart(document.getElementById('miniShop_'+i),{
+      data:{labels:D.hours.labels,datasets:[
+        {type:'bar',label:'Revenue',data:s.rev,backgroundColor:'#16a34a',yAxisID:'y',order:2},
+        {type:'line',label:'Avg Basket',data:s.avg_basket,borderColor:'#f59e0b',backgroundColor:'#f59e0b',
+         yAxisID:'y1',tension:.3,pointRadius:2,borderWidth:2,order:1,spanGaps:true}
+      ]},
+      options:{maintainAspectRatio:false,
+        plugins:{legend:{display:false},
+          tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt(Math.round(c.parsed.y))+' MWK'}}},
+        scales:{
+          x:{ticks:{font:{size:8},maxRotation:0,autoSkip:true,maxTicksLimit:8}},
+          y:{position:'left',ticks:{font:{size:9},callback:v=>fmtM(v)}},
+          y1:{position:'right',grid:{display:false},ticks:{font:{size:9},callback:v=>fmtM(v)}}
+        }}});
+  });
+
+  // ----- Regions tab -----
+  CHARTS.cRegPie = new Chart(document.getElementById('cRegPie'),{type:'pie',
+    data:{labels:D.regions.labels,datasets:[{data:D.regions.data,backgroundColor:PAL,borderWidth:2,borderColor:'#fff'}]},
+    plugins:[pieValuePctLabels],
+    options:{maintainAspectRatio:false,plugins:{legend:{position:'right'},
+      tooltip:{callbacks:{label:c=>c.label+': '+fmt(Math.round(c.parsed))+' MWK ('+(D.totals.rev?(c.parsed/D.totals.rev*100).toFixed(1):0)+'%)'}}}}});
+  CHARTS.cRegQty = new Chart(document.getElementById('cRegQty'),{type:'pie',
+    data:{labels:D.regions.labels,datasets:[{data:D.regions.qty,backgroundColor:PAL,borderWidth:2,borderColor:'#fff'}]},
+    plugins:[pieValuePctLabels],
+    options:{maintainAspectRatio:false,plugins:{legend:{position:'right'},
+      tooltip:{callbacks:{label:c=>{const tot=D.regions.qty.reduce((a,b)=>a+b,0); return c.label+': '+fmt(Math.round(c.parsed))+' units ('+(tot?(c.parsed/tot*100).toFixed(1):0)+'%)';}}}}}});
+
+  // Month-on-Month Sales by Region — one line per region
+  const regMonthKeys = Object.keys(D.region_month);
+  const regMonthDatasets = regMonthKeys.map(r => ({
+    label: r,
+    data: D.region_month[r],
+    borderColor: regionColor(r),
+    backgroundColor: regionColor(r) + '22',
+    tension: .3, fill: false, pointRadius: 4, borderWidth: 2,
+  }));
+  CHARTS.cRegMonth = new Chart(document.getElementById('cRegMonth'), {type:'line',
+    data: {labels: D.month_labels, datasets: regMonthDatasets},
+    options: {maintainAspectRatio:false, plugins:{legend:{position:'top'},
+      tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt(Math.round(c.parsed.y))+' MWK'}}},
+      scales:{y:{beginAtZero:true, ticks:{callback:v=>fmtM(v)}}}}});
+  (()=>{
+    const t = D.totals.rev;
+    let sumR=0,sumQ=0,sumS=0;
+    const rows = D.regions.labels.map((r,i)=>{
+      const rev=D.regions.data[i], q=D.regions.qty[i], ns=D.regions.n_shops[i], ap=D.regions.avg_per_shop[i];
+      sumR+=rev; sumQ+=q; sumS+=ns;
+      return `<tr><td><strong>${r}</strong></td>
+        <td class="num">${fmt(ns)}</td>
+        <td class="num">${fmt(Math.round(rev))}</td>
+        <td class="num">${fmt(q)}</td>
+        <td class="num">${fmt(Math.round(ap))}</td>
+        <td class="num">${t?(rev/t*100).toFixed(1):'0.0'}%</td></tr>`;
+    }).join('');
+    const totalRow = `<tr style="background:#f0fdf4;font-weight:700;border-top:2px solid #16a34a">
+        <td><strong>TOTAL</strong></td>
+        <td class="num">${fmt(sumS)}</td>
+        <td class="num">${fmt(Math.round(sumR))}</td>
+        <td class="num">${fmt(sumQ)}</td>
+        <td class="num">${sumS?fmt(Math.round(sumR/sumS)):'-'}</td>
+        <td class="num">100.0%</td></tr>`;
+    document.getElementById('tReg').innerHTML =
+      '<thead><tr><th>Region</th><th class="num"># Shops</th><th class="num">Revenue (MWK)</th><th class="num">Qty</th><th class="num">Avg Sales / Shop</th><th class="num">% Share</th></tr></thead><tbody>'+rows+totalRow+'</tbody>';
+  })();
+
+  // ----- Raw tables tab -----
+  (()=>{
+    const rows = D.days.labels.map((d,i)=>`<tr><td>${d}</td><td class="num">${fmt(Math.round(D.days.rev[i]))}</td><td class="num">${fmt(D.days.qty[i])}</td></tr>`).join('');
+    document.getElementById('tDay').innerHTML =
+      '<thead><tr><th>Date</th><th class="num">Revenue (MWK)</th><th class="num">Qty</th></tr></thead><tbody>'+rows+'</tbody>';
+  })();
+  (()=>{
+    const rows = D.hours.labels.map((h,i)=>`<tr><td>${h}</td><td class="num">${fmt(Math.round(D.hours.rev[i]))}</td><td class="num">${fmt(D.hours.qty[i])}</td></tr>`).join('');
+    document.getElementById('tHr').innerHTML =
+      '<thead><tr><th>Hour</th><th class="num">Revenue (MWK)</th><th class="num">Qty</th></tr></thead><tbody>'+rows+'</tbody>';
+  })();
+}
+
+// ----- Sortable/filterable tables (kept as separate functions so filter UI can re-run only them) -----
+function renderShops() {
+  const sortKey = document.getElementById('shopSort').value;
+  const search = document.getElementById('shopSearch').value.toLowerCase();
+  let arr = D.shops.filter(s=>s.shop.toLowerCase().includes(search));
+  arr.sort((a,b)=>b[sortKey]-a[sortKey]);
+  const rows = arr.map((s,i)=>`<tr><td><span class="rank">${i+1}</span></td><td>${s.shop}</td>
+    <td class="num">${fmt(Math.round(s.total))}</td><td class="num">${fmt(Math.round(s.chicken))}</td>
+    <td class="num">${fmt(Math.round(s.beef))}</td><td class="num">${fmt(Math.round(s.egg))}</td>
+    <td class="num">${fmt(Math.round(s.trading))}</td>
+    <td class="num">${s.mwk_per_kg?fmt(Math.round(s.mwk_per_kg)):'-'}</td>
+    <td class="num">${s.avg_basket?fmt(Math.round(s.avg_basket)):'-'}</td>
+    <td class="num">${fmt(s.baskets)}</td></tr>`).join('');
+  document.getElementById('tShop').innerHTML =
+    '<thead><tr><th>#</th><th>Shop</th><th class="num">Total</th><th class="num">Chicken</th><th class="num">Beef</th><th class="num">Egg</th><th class="num">Trading</th><th class="num">MWK / kg</th><th class="num">Avg Basket</th><th class="num">Baskets</th></tr></thead><tbody>'+rows+'</tbody>';
+}
+function renderProducts() {
+  const sortKey = document.getElementById('prodSort').value;
+  const seg = document.getElementById('prodSeg').value;
+  const q = document.getElementById('prodSearch').value.toLowerCase();
+  let arr = D.products.filter(p=>(!seg||p.seg===seg) && p.name.toLowerCase().includes(q));
+  arr.sort((a,b)=>b[sortKey]-a[sortKey]);
+  document.getElementById('prodCount').textContent = `— showing ${arr.length} of ${D.products.length} products`;
+  const rows = arr.map((p,i)=>`<tr><td><span class="rank">${['🥇','🥈','🥉'][i]||('#'+(i+1))}</span></td>
+    <td>${p.name}</td><td>${segPill(p.seg)}</td><td>${p.cat||''}</td>
+    <td class="num">${fmt(Math.round(p.rev))}</td>
+    <td class="num">${fmt(p.qty)}</td>
+    <td class="num">${p.wght?fmt(Math.round(p.wght)):'-'}</td>
+    <td class="num">${p.mwk_per_kg?fmt(Math.round(p.mwk_per_kg)):'-'}</td>
+    <td class="num">${p.avg_basket?fmt(Math.round(p.avg_basket)):'-'}</td>
+    <td class="num">${fmt(p.baskets)}</td>
+    <td class="num">${p.pct.toFixed(2)}%</td></tr>`).join('');
+  document.getElementById('tTop').innerHTML =
+    '<thead><tr><th>#</th><th>Product</th><th>Segment</th><th>Category</th><th class="num">Revenue (MWK)</th><th class="num">Qty</th><th class="num">Volume (kg)</th><th class="num">MWK / kg</th><th class="num">Avg Basket</th><th class="num">Baskets</th><th class="num">% of Total</th></tr></thead><tbody>'+rows+'</tbody>';
+}
+
+// ==========================================================================
+// Wire up UI
+// ==========================================================================
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  document.getElementById('p-'+b.dataset.p).classList.add('active');
+});
+
+// Date filter inputs — no min/max constraint, users can pick any date
+const dsInput = document.getElementById('dateStart');
+const deInput = document.getElementById('dateEnd');
+dsInput.value = dateStart;
+deInput.value = dateEnd;
+
+function onDateChange() {
+  const s = dsInput.value, e = deInput.value;
+  if (!s || !e) return;
+  dateStart = s; dateEnd = e;
+  if (dateStart > dateEnd) { const t=dateStart; dateStart=dateEnd; dateEnd=t; }
+  dsInput.value = dateStart; deInput.value = dateEnd;
+  renderAll();
+}
+dsInput.onchange = onDateChange;
+deInput.onchange = onDateChange;
+
+document.getElementById('dateReset').onclick = () => {
+  dateStart = (_dataStart < _yearStart) ? _dataStart : _yearStart;
+  dateEnd = _dataEnd;
+  dsInput.value = dateStart; deInput.value = dateEnd;
+  renderAll();
+};
+
+// Quick-range buttons
+document.querySelectorAll('.quickRange').forEach(b => b.onclick = () => {
+  const n = parseInt(b.dataset.days);
+  const end = L.dates[L.dates.length-1];
+  const startCandidate = L.dates[Math.max(0, L.dates.length - n)];
+  dateStart = startCandidate; dateEnd = end;
+  dsInput.value = dateStart; deInput.value = dateEnd;
+  renderAll();
+});
+
+// Sortable table inputs
+document.getElementById('shopSort').onchange = renderShops;
+document.getElementById('shopSearch').oninput = renderShops;
+document.getElementById('prodSort').onchange = renderProducts;
+document.getElementById('prodSeg').onchange = renderProducts;
+document.getElementById('prodSearch').oninput = renderProducts;
+
+// Initial render
+renderAll();
+</script>
+
+</body>
+</html>

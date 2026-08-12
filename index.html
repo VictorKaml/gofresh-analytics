@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>GoFresh Sales Dashboard</title>
+<style>
+  :root {
+    --brand-green: #16a34a;
+    --brand-teal: #0f766e;
+    --brand-orange: #f97316;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
+    background: #f4f6f8;
+  }
+  #toolbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 18px; background: linear-gradient(135deg,var(--brand-green) 0%,var(--brand-teal) 100%);
+    color: #fff; height: 50px; box-sizing: border-box;
+  }
+  #toolbar img#logo {
+    height: 34px; width: 34px; object-fit: contain;
+    background: rgba(255,255,255,.95); border-radius: 8px; padding: 3px;
+  }
+  #appName { font-size: 13.5px; font-weight: 700; letter-spacing: .2px; margin-right: 6px; }
+  #toolbar button {
+    background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.35);
+    color: #fff; padding: 7px 14px; border-radius: 6px; cursor: pointer;
+    font-size: 12.5px; font-weight: 600; transition: background .15s;
+  }
+  #toolbar button:hover { background: rgba(255,255,255,.28); }
+  #fileLabel { font-size: 12px; opacity: .9; }
+  #errorLabel { font-size: 12px; color: #fee2e2; margin-left: auto; max-width: 460px; }
+  #frameWrap { position: absolute; top: 50px; left: 0; right: 0; bottom: 0; }
+  iframe { width: 100%; height: 100%; border: 0; display: block; }
+  #empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100%; color: #64748b; font-size: 14px; gap: 10px;
+  }
+  #empty span.hint { font-size: 12px; color: #94a3b8; }
+
+  /* ---------- Drag & drop overlay ---------- */
+  #dropOverlay {
+    position: fixed; inset: 0; z-index: 50;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(15, 118, 110, .88);
+    backdrop-filter: blur(2px);
+  }
+  #dropOverlay.active { display: flex; }
+  #dropCard {
+    width: 420px; padding: 40px 30px;
+    border: 3px dashed rgba(255,255,255,.65);
+    border-radius: 18px;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    color: #fff; text-align: center;
+    transition: border-color .15s, background .15s;
+  }
+  #dropOverlay.dragging #dropCard {
+    border-color: #fff;
+    background: rgba(255,255,255,.08);
+  }
+  #dropCard img { width: 56px; height: 56px; object-fit: contain; }
+  #dropCard h2 { margin: 0; font-size: 18px; font-weight: 700; }
+  #dropCard p { margin: 0; font-size: 12.5px; color: rgba(255,255,255,.8); }
+
+  /* ---------- Loading overlay (progress ring) ---------- */
+  #loadOverlay {
+    position: fixed; inset: 0; z-index: 60;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(15, 23, 42, .55);
+    backdrop-filter: blur(1.5px);
+  }
+  #loadOverlay.active { display: flex; }
+  #loadCard {
+    width: 260px; padding: 30px 24px;
+    border-radius: 16px;
+    background: linear-gradient(160deg, #0f766e 0%, #115e46 60%, #0b3d2e 100%);
+    box-shadow: 0 20px 50px rgba(0,0,0,.4);
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+  }
+  #ringWrap { position: relative; width: 96px; height: 96px; }
+  #ringWrap svg { transform: rotate(-90deg); }
+  #ringWrap svg.spinning { animation: spin 1.1s linear infinite; transform-origin: 50% 50%; }
+  @keyframes spin { from { transform: rotate(-90deg); } to { transform: rotate(270deg); } }
+  .ring-bg { fill: none; stroke: rgba(255,255,255,.14); stroke-width: 7; }
+  .ring-fg {
+    fill: none; stroke: var(--brand-orange); stroke-width: 7; stroke-linecap: round;
+    transition: stroke-dashoffset .3s ease;
+  }
+  .ring-fg.indeterminate { stroke-dasharray: 44 232 !important; transition: none; }
+  #loadPct {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  #loadStatus { color: rgba(255,255,255,.8); font-size: 12px; text-align: center; min-height: 15px; }
+</style>
+</head>
+<body>
+  <div id="toolbar">
+    <img id="logo" src="assets/gofresh_logo_transparent.png" alt="GoFresh">
+    <span id="appName">GoFresh Sales Dashboard</span>
+    <button id="openBtn">📂 Open Excel File</button>
+    <span id="fileLabel">Loading default workbook…</span>
+    <span id="errorLabel"></span>
+  </div>
+  <div id="frameWrap">
+    <div id="empty">
+      <div>No dashboard loaded yet.</div>
+      <span class="hint">Drag &amp; drop an .xlsx file anywhere on this window to load it.</span>
+    </div>
+    <iframe id="dashFrame" style="display:none"></iframe>
+  </div>
+
+  <!-- Drag & drop target -->
+  <div id="dropOverlay">
+    <div id="dropCard">
+      <img src="assets/gofresh_logo_transparent.png" alt="GoFresh">
+      <h2>Drop to update the dashboard</h2>
+      <p>Release an .xlsx or .xlsm file to reload the dashboard with new data</p>
+    </div>
+  </div>
+
+  <!-- Loading overlay (shown while a workbook is being parsed) -->
+  <div id="loadOverlay">
+    <div id="loadCard">
+      <div id="ringWrap">
+        <svg viewBox="0 0 96 96" width="96" height="96">
+          <circle class="ring-bg" cx="48" cy="48" r="40"></circle>
+          <circle class="ring-fg" id="loadRingFg" cx="48" cy="48" r="40"
+                  stroke-dasharray="251.3" stroke-dashoffset="251.3"></circle>
+        </svg>
+        <div id="loadPct">0%</div>
+      </div>
+      <div id="loadStatus">Loading workbook…</div>
+    </div>
+  </div>
+
+  <script>
+    const openBtn = document.getElementById('openBtn');
+    const fileLabel = document.getElementById('fileLabel');
+    const errorLabel = document.getElementById('errorLabel');
+    const frame = document.getElementById('dashFrame');
+    const empty = document.getElementById('empty');
+
+    const dropOverlay = document.getElementById('dropOverlay');
+    const loadOverlay = document.getElementById('loadOverlay');
+    const loadRingFg = document.getElementById('loadRingFg');
+    const loadRingSvg = loadRingFg.closest('svg');
+    const loadPct = document.getElementById('loadPct');
+    const loadStatus = document.getElementById('loadStatus');
+    const CIRCUMFERENCE = 2 * Math.PI * 40; // ~251.3
+
+    openBtn.addEventListener('click', () => window.dashboardAPI.openFile());
+
+    // ---------- loading overlay driven by main-process progress events ----------
+    function showLoadOverlay() {
+      loadOverlay.classList.add('active');
+    }
+    function hideLoadOverlay() {
+      loadOverlay.classList.remove('active');
+    }
+    function setLoadIndeterminate(status) {
+      loadRingFg.classList.add('indeterminate');
+      loadRingSvg.classList.add('spinning');
+      loadPct.textContent = '';
+      loadStatus.textContent = status || 'Working…';
+    }
+    function setLoadPercent(percent, status) {
+      loadRingFg.classList.remove('indeterminate');
+      loadRingSvg.classList.remove('spinning');
+      const clamped = Math.max(0, Math.min(100, percent));
+      loadRingFg.style.strokeDashoffset = String(CIRCUMFERENCE * (1 - clamped / 100));
+      loadPct.textContent = clamped + '%';
+      if (status) loadStatus.textContent = status;
+    }
+
+    window.dashboardAPI.onLoadProgress(({ percent, status }) => {
+      showLoadOverlay();
+      if (percent === null || percent === undefined) {
+        setLoadIndeterminate(status);
+      } else {
+        setLoadPercent(percent, status);
+      }
+    });
+
+    window.dashboardAPI.onDashboardReady(({ outPath, fileName }) => {
+      hideLoadOverlay();
+      errorLabel.textContent = '';
+      frame.src = 'file://' + outPath.replace(/\\/g, '/') + '?t=' + Date.now();
+      frame.style.display = 'block';
+      empty.style.display = 'none';
+      fileLabel.textContent = 'Loaded: ' + fileName;
+    });
+
+    window.dashboardAPI.onDashboardError(({ message }) => {
+      hideLoadOverlay();
+      errorLabel.textContent = '⚠ ' + message;
+    });
+
+    // ---------- drag & drop overlay ----------
+    let dragCounter = 0;
+
+    function isFileDrag(e) {
+      return e.dataTransfer && Array.prototype.includes.call(e.dataTransfer.types || [], 'Files');
+    }
+
+    window.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      if (!isFileDrag(e)) return;
+      dragCounter++;
+      dropOverlay.classList.add('active', 'dragging');
+    });
+
+    window.addEventListener('dragover', (e) => {
+      e.preventDefault(); // required to allow dropping
+      if (isFileDrag(e)) e.dataTransfer.dropEffect = 'copy';
+    });
+
+    window.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dragCounter = Math.max(0, dragCounter - 1);
+      if (dragCounter === 0) dropOverlay.classList.remove('active', 'dragging');
+    });
+
+    window.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      dropOverlay.classList.remove('active', 'dragging');
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (!file) return;
+      if (!/\.(xlsx|xlsm)$/i.test(file.name)) {
+        errorLabel.textContent = '⚠ Please drop an .xlsx or .xlsm file.';
+        return;
+      }
+      // File.path (the old way to get a dropped file's real filesystem
+      // path) was removed in Electron 32 — webUtils.getPathForFile,
+      // exposed via preload.js, is the current, version-safe replacement.
+      const filePath = window.dashboardAPI.getPathForFile(file);
+      if (!filePath) {
+        errorLabel.textContent = '⚠ Could not resolve the dropped file\'s path. Try "Open File" from the menu instead.';
+        return;
+      }
+      showLoadOverlay();
+      setLoadPercent(0, 'Starting…');
+      window.dashboardAPI.loadDroppedFile(filePath);
+    });
+  </script>
+</body>
+</html>

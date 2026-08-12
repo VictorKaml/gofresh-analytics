@@ -1,0 +1,66 @@
+{
+  "name": "gofresh-analytics",
+  "productName": "GoFresh Analytics",
+  "version": "1.0.0",
+  "description": "GoFresh Sales Intelligence Analytics (desktop app)",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:python": "node scripts/build-python.js",
+    "predist": "npm run build:python",
+    "dist": "electron-builder --win"
+  },
+  "author": "",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.gofresh.analytics",
+    "productName": "GoFresh Analytics",
+    "files": [
+      "main.js",
+      "preload.js",
+      "splash-preload.js",
+      "index.html",
+      "assets/**/*",
+      "data/**/*"
+    ],
+    "asarUnpack": [
+      "data/**/*"
+    ],
+    "icon": "assets/icons/icon.ico",
+    "extraResources": [
+      {
+        "from": "build-resources/python",
+        "to": "python"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icons/icon.ico"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "VictorKaml",
+      "repo": "gofresh-analytics"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  }
+}

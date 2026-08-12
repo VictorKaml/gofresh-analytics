@@ -1,0 +1,6 @@
+# Build-time only. End users of the packaged app do NOT need Python —
+# `npm run build:python` compiles src/aggregate_workbook.py into a
+# standalone binary (via PyInstaller) that gets bundled into the app.
+python-calamine>=0.3
+openpyxl>=3.1
+pyinstaller>=6.0
