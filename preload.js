@@ -12,4 +12,8 @@ contextBridge.exposeInMainWorld('dashboardAPI', {
   onLoadProgress: (callback) => {
     ipcRenderer.on('load-progress', (_event, data) => callback(data));
   },
+  onUpdateStatus: (callback) => {
+    ipcRenderer.on('update-status', (_event, data) => callback(data));
+  },
+  restartAndInstall: () => ipcRenderer.invoke('restart-and-install'),
 });

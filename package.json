@@ -1,33 +1,37 @@
 {
-  "name": "gofresh-analytics",
-  "productName": "GoFresh Analytics",
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "gofresh-sales-dashboard",
+  "productName": "GoFresh Sales Dashboard",
   "version": "1.0.0",
-  "description": "GoFresh Sales Intelligence Analytics (desktop app)",
+  "description": "GoFresh RetailMax Sales Intelligence Dashboard (desktop app)",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "build:python": "node scripts/build-python.js",
     "predist": "npm run build:python",
-    "dist": "electron-builder --win"
+    "dist": "electron-builder --win",
+    "prerelease": "npm run build:python",
+    "release": "dotenv -e .env -- electron-builder --win --publish always"
   },
   "author": "",
   "license": "UNLICENSED",
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
   "devDependencies": {
+    "dotenv-cli": "^7.4.2",
     "electron": "^31.7.7",
     "electron-builder": "^24.13.3"
   },
   "build": {
-    "appId": "com.gofresh.analytics",
-    "productName": "GoFresh Analytics",
+    "appId": "com.gofresh.salesdashboard",
+    "productName": "GoFresh Sales Dashboard",
     "files": [
       "main.js",
       "preload.js",
       "splash-preload.js",
       "index.html",
       "assets/**/*",
-      "data/**/*"
-    ],
-    "asarUnpack": [
       "data/**/*"
     ],
     "icon": "assets/icons/icon.ico",
@@ -37,6 +41,11 @@
         "to": "python"
       }
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "VictorKaml",
+      "repo": "gofresh-analytics"
+    },
     "win": {
       "target": [
         {
@@ -48,19 +57,11 @@
       ],
       "icon": "assets/icons/icon.ico"
     },
-    "publish": {
-      "provider": "github",
-      "owner": "VictorKaml",
-      "repo": "gofresh-analytics"
-    },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     }
-  },
-  "dependencies": {
-    "electron-updater": "^6.8.9"
   }
 }

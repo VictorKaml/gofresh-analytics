@@ -93,6 +93,69 @@ Windows program (Start Menu + Desktop shortcuts are created automatically).
 > The first `npm run dist` run downloads Electron's prebuilt binaries and
 > build tools — it needs an internet connection and can take a few minutes.
 
+## Auto-updates (electron-updater + GitHub Releases)
+
+The app checks for updates automatically shortly after launch, and again
+every 4 hours while it's open, using `electron-updater` against GitHub
+Releases. Users can also trigger a manual check from **Help → Check for
+Updates...**. When an update is found, it downloads in the background and
+a small notification appears in the bottom-right corner; once it's fully
+downloaded, the user can click **Restart Now** to install it (or it installs
+automatically the next time they quit the app).
+
+**One-time setup:**
+
+1. In `package.json`, replace the placeholders in `build.publish` with your
+   actual GitHub repo:
+   ```json
+   "publish": {
+     "provider": "github",
+     "owner": "YOUR_GITHUB_USERNAME",
+     "repo": "YOUR_GITHUB_REPO_NAME"
+   }
+   ```
+2. Create a [GitHub personal access token](https://github.com/settings/tokens)
+   with `repo` scope (needed to publish releases), then save it to a local
+   `.env` file so `npm run release` can find it automatically — no manual
+   exporting, and it works the same in PowerShell, cmd, or Git Bash:
+   ```bash
+   cp .env.example .env
+   ```
+   Then open `.env` and replace the placeholder with your real token:
+   ```
+   GH_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
+   ```
+   `.env` is already listed in `.gitignore` — it will never get committed.
+   (If you previously tried setting `GH_TOKEN` with `$env:GH_TOKEN=...` or
+   `set GH_TOKEN=...` and hit a "GitHub Personal Access Token is not set"
+   error anyway, that's almost always because it was set in a different
+   terminal window/session than the one running `npm run release` — the
+   `.env` file sidesteps that entirely.)
+
+**Every time you want to ship an update:**
+
+1. Bump the version in `package.json` (e.g. `1.0.0` → `1.0.1`). This is
+   what `electron-updater` compares against to know a new version exists —
+   forgetting this step means users will never see the update.
+2. Run:
+   ```bash
+   npm run release
+   ```
+   This rebuilds the bundled Python binary (`prerelease` → `build:python`,
+   same as `dist`), builds the Windows installer, loads `GH_TOKEN` from
+   `.env`, and publishes directly to a new GitHub Release in your repo —
+   along with the `latest.yml` metadata file `electron-updater` reads to
+   detect new versions.
+3. That's it — anyone with an earlier version running will pick up the
+   update automatically next time they open the app (or within 4 hours if
+   they leave it running).
+
+If you'd rather review the release before it goes live, publish as a draft
+first and hit "Publish" on GitHub when ready:
+```bash
+npx dotenv -e .env -- electron-builder --win --publish always -c.publish.releaseType=draft
+```
+
 ## Swapping the default workbook
 
 Replace `data/default.xlsx` with your latest export (keep the filename, or

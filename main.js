@@ -1,24 +1,15 @@
 const { app, BrowserWindow, dialog, Menu, ipcMain } = require('electron');
-const { setupAutoUpdater } = require('../src/main/autoUpdater');
 const path = require('path');
 const fs = require('fs');
 const { spawn, execFileSync } = require('child_process');
+const { autoUpdater } = require('electron-updater');
 
 let mainWindow = null;
 let splashWindow = null;
 let currentFilePath = null;
 
 const TEMPLATE_PATH = path.join(__dirname, 'assets', 'dashboard-template.html');
-// data/default.xlsx is bundled via the `files` glob, which packs it inside
-// app.asar. Electron's own fs can read into asar transparently, but the
-// aggregator is spawned as an EXTERNAL process (the PyInstaller exe, or the
-// system-python fallback) which cannot read into app.asar at all. The
-// `asarUnpack` entry in package.json's build config extracts data/**/* to
-// a real folder alongside the archive (app.asar.unpacked/data/...) — this
-// path must point there in packaged builds, not into the archive itself.
-const DEFAULT_XLSX = app.isPackaged
-  ? path.join(process.resourcesPath, 'app.asar.unpacked', 'data', 'default.xlsx')
-  : path.join(__dirname, 'data', 'default.xlsx');
+const DEFAULT_XLSX = path.join(__dirname, 'data', 'default.xlsx');
 const AGGREGATE_SCRIPT = path.join(__dirname, 'src', 'aggregate_workbook.py');
 const APP_ICON = path.join(__dirname, 'assets', 'icons', 'icon.png');
 
@@ -82,7 +73,7 @@ function resolveAggregatorInvocation(xlsxPath) {
     `Bundled aggregator not found at ${bundled}, and no system Python ` +
     `interpreter was found either (tried: ${SYSTEM_PYTHON_CANDIDATES.join(', ')}). ` +
     `Run "npm run build:python" to build the bundled binary, or install ` +
-    `Python 3 + "pip install python-calamine" for development.`
+    `Python 3 + "pip install openpyxl" for development.`
   );
 }
 
@@ -227,14 +218,60 @@ function buildMenu() {
         { role: 'togglefullscreen' },
       ],
     },
+    {
+      label: 'Help',
+      submenu: [
+        { label: 'Check for Updates...', click: checkForUpdates },
+      ],
+    },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
 // ---------------------------------------------------------------------------
-// Splash screen — shown at startup while the default workbook loads in the
-// background. Driven by the same PROGRESS events the aggregator emits.
+// Auto-update (electron-updater, GitHub Releases provider — see the
+// "publish" block in package.json). Only runs in packaged builds: dev runs
+// have no update feed and checking would just log noisy errors.
 // ---------------------------------------------------------------------------
+
+function sendUpdateStatus(data) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-status', data);
+  }
+}
+
+function setupAutoUpdater() {
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('checking-for-update', () => {
+    sendUpdateStatus({ state: 'checking' });
+  });
+  autoUpdater.on('update-available', (info) => {
+    sendUpdateStatus({ state: 'available', version: info.version });
+  });
+  autoUpdater.on('update-not-available', () => {
+    sendUpdateStatus({ state: 'not-available' });
+  });
+  autoUpdater.on('error', (err) => {
+    sendUpdateStatus({ state: 'error', message: err.message });
+  });
+  autoUpdater.on('download-progress', (progress) => {
+    sendUpdateStatus({ state: 'downloading', percent: Math.round(progress.percent) });
+  });
+  autoUpdater.on('update-downloaded', (info) => {
+    sendUpdateStatus({ state: 'downloaded', version: info.version });
+  });
+}
+
+function checkForUpdates() {
+  if (!app.isPackaged) return; // no update feed in dev
+  autoUpdater.checkForUpdates().catch((err) => {
+    sendUpdateStatus({ state: 'error', message: err.message });
+  });
+}
+
+
 
 function createSplashWindow() {
   const win = new BrowserWindow({
@@ -277,9 +314,6 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
   buildMenu();
-  
-  // Initialize auto-updater after window is ready
-  setupAutoUpdater(mainWindow);
   return mainWindow;
 }
 
@@ -313,6 +347,7 @@ async function startup() {
       });
     }
     await finishSplash();
+    checkForUpdates();
   });
 }
 
@@ -333,6 +368,12 @@ ipcMain.handle('load-dropped-file', async (_event, filePath) => {
   });
 });
 
+ipcMain.handle('restart-and-install', () => {
+  autoUpdater.quitAndInstall();
+});
+
+setupAutoUpdater();
+
 app.whenReady().then(startup);
 
 app.on('window-all-closed', () => {
@@ -342,3 +383,6 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) startup();
 });
+
+// Check again periodically for anyone who leaves the app open a long time.
+setInterval(checkForUpdates, 4 * 60 * 60 * 1000); // every 4 hours

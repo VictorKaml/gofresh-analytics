@@ -95,6 +95,35 @@
     color: #fff; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums;
   }
   #loadStatus { color: rgba(255,255,255,.8); font-size: 12px; text-align: center; min-height: 15px; }
+
+  /* ---------- Update banner ---------- */
+  #updateToast {
+    position: fixed; right: 18px; bottom: 18px; z-index: 70;
+    display: none; align-items: center; gap: 12px;
+    background: #0f172a; color: #fff;
+    padding: 12px 16px; border-radius: 10px;
+    box-shadow: 0 12px 30px rgba(0,0,0,.35);
+    font-size: 12.5px; max-width: 340px;
+  }
+  #updateToast.active { display: flex; }
+  #updateToast .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--brand-orange); flex-shrink: 0;
+  }
+  #updateToast .dot.pulsing { animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+  #updateToast .text { flex: 1; line-height: 1.4; }
+  #updateToast button {
+    background: var(--brand-orange); border: none; color: #fff;
+    padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;
+    cursor: pointer; flex-shrink: 0;
+  }
+  #updateToast button:hover { filter: brightness(1.08); }
+  #updateToast .close {
+    background: transparent; color: rgba(255,255,255,.5); padding: 0 2px;
+    font-size: 15px; font-weight: 400;
+  }
+  #updateToast .close:hover { color: #fff; }
 </style>
 </head>
 <body>
@@ -135,6 +164,14 @@
       </div>
       <div id="loadStatus">Loading workbook…</div>
     </div>
+  </div>
+
+  <!-- Update notification -->
+  <div id="updateToast">
+    <div class="dot" id="updateDot"></div>
+    <div class="text" id="updateText">Checking for updates…</div>
+    <button id="updateActionBtn" style="display:none">Restart Now</button>
+    <button class="close" id="updateCloseBtn">✕</button>
   </div>
 
   <script>
@@ -199,6 +236,51 @@
       errorLabel.textContent = '⚠ ' + message;
     });
 
+    // ---------- update banner ----------
+    const updateToast = document.getElementById('updateToast');
+    const updateDot = document.getElementById('updateDot');
+    const updateText = document.getElementById('updateText');
+    const updateActionBtn = document.getElementById('updateActionBtn');
+    const updateCloseBtn = document.getElementById('updateCloseBtn');
+
+    function showToast() { updateToast.classList.add('active'); }
+    function hideToast() { updateToast.classList.remove('active'); }
+    updateCloseBtn.addEventListener('click', hideToast);
+    updateActionBtn.addEventListener('click', () => window.dashboardAPI.restartAndInstall());
+
+    window.dashboardAPI.onUpdateStatus((data) => {
+      switch (data.state) {
+        case 'checking':
+          // silent — no need to interrupt the user just to check
+          break;
+        case 'available':
+          updateDot.classList.add('pulsing');
+          updateText.textContent = `Update ${data.version} is downloading in the background…`;
+          updateActionBtn.style.display = 'none';
+          showToast();
+          break;
+        case 'downloading':
+          updateDot.classList.add('pulsing');
+          updateText.textContent = `Downloading update… ${data.percent}%`;
+          updateActionBtn.style.display = 'none';
+          showToast();
+          break;
+        case 'downloaded':
+          updateDot.classList.remove('pulsing');
+          updateText.textContent = `Update ${data.version} is ready to install.`;
+          updateActionBtn.style.display = 'inline-block';
+          showToast();
+          break;
+        case 'not-available':
+          hideToast();
+          break;
+        case 'error':
+          // Don't nag users with update-check errors (e.g. offline) —
+          // only the "downloaded" success state truly needs their action.
+          break;
+      }
+    });
+
     // ---------- drag & drop overlay ----------
     let dragCounter = 0;
 
@@ -234,17 +316,9 @@
         errorLabel.textContent = '⚠ Please drop an .xlsx or .xlsm file.';
         return;
       }
-      // File.path (the old way to get a dropped file's real filesystem
-      // path) was removed in Electron 32 — webUtils.getPathForFile,
-      // exposed via preload.js, is the current, version-safe replacement.
-      const filePath = window.dashboardAPI.getPathForFile(file);
-      if (!filePath) {
-        errorLabel.textContent = '⚠ Could not resolve the dropped file\'s path. Try "Open File" from the menu instead.';
-        return;
-      }
       showLoadOverlay();
       setLoadPercent(0, 'Starting…');
-      window.dashboardAPI.loadDroppedFile(filePath);
+      window.dashboardAPI.loadDroppedFile(file.path);
     });
   </script>
 </body>
