@@ -266,9 +266,30 @@ function sendUpdateStatus(data) {
   }
 }
 
+// Tracks whether an update has finished downloading and is ready to be
+// installed. Used so that if the app quits (for any reason) while an
+// update is pending, we can force a silent install + relaunch instead of
+// silently updating and leaving the app closed (electron-updater's
+// built-in "install on quit" path installs silently but does NOT relaunch
+// the app afterward — that's the bug this works around).
+let updateReadyToInstall = false;
+let installTriggered = false;
+
+function silentInstallAndRelaunch() {
+  if (installTriggered) return;
+  installTriggered = true;
+  // isSilent = true (no NSIS wizard shown), isForceRunAfter = true
+  // (guarantees the app reopens once the silent install finishes).
+  autoUpdater.quitAndInstall(true, true);
+}
+
 function setupAutoUpdater() {
   autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
+  // We handle installing on quit ourselves (see the "before-quit" handler
+  // below) so that we can force the app to relaunch afterward. The
+  // built-in autoInstallOnAppQuit path installs silently but never
+  // relaunches, which left the app "updated" but not running.
+  autoUpdater.autoInstallOnAppQuit = false;
 
   autoUpdater.on("checking-for-update", () => {
     sendUpdateStatus({ state: "checking" });
@@ -289,9 +310,21 @@ function setupAutoUpdater() {
     });
   });
   autoUpdater.on("update-downloaded", (info) => {
+    updateReadyToInstall = true;
     sendUpdateStatus({ state: "downloaded", version: info.version });
   });
 }
+
+// If the app is closed (window closed, Cmd/Ctrl+Q, OS logout, etc.) while
+// an update has finished downloading, install it and relaunch instead of
+// just quitting and leaving the update un-applied until the user manually
+// reopens the app.
+app.on("before-quit", (event) => {
+  if (updateReadyToInstall && !installTriggered) {
+    event.preventDefault();
+    silentInstallAndRelaunch();
+  }
+});
 
 function checkForUpdates() {
   if (!app.isPackaged) {
@@ -422,7 +455,7 @@ ipcMain.handle("load-dropped-file", async (_event, filePath) => {
 });
 
 ipcMain.handle("restart-and-install", () => {
-  autoUpdater.quitAndInstall();
+  silentInstallAndRelaunch();
 });
 
 setupAutoUpdater();
