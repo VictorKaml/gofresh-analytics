@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/package.json",
   "name": "gofresh-sales-dashboard",
   "productName": "GoFresh Sales Dashboard",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "GoFresh RetailMax Sales Intelligence Dashboard (desktop app)",
   "main": "main.js",
   "scripts": {
