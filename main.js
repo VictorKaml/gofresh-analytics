@@ -1,17 +1,18 @@
-const { app, BrowserWindow, dialog, Menu, ipcMain } = require('electron');
-const path = require('path');
-const fs = require('fs');
-const { spawn, execFileSync } = require('child_process');
-const { autoUpdater } = require('electron-updater');
+const { app, BrowserWindow, dialog, Menu, ipcMain } = require("electron");
+const log = require("electron-log");
+const path = require("path");
+const fs = require("fs");
+const { spawn, execFileSync } = require("child_process");
+const { autoUpdater } = require("electron-updater");
 
 let mainWindow = null;
 let splashWindow = null;
 let currentFilePath = null;
 
-const TEMPLATE_PATH = path.join(__dirname, 'assets', 'dashboard-template.html');
-const DEFAULT_XLSX = path.join(__dirname, 'data', 'default.xlsx');
-const AGGREGATE_SCRIPT = path.join(__dirname, 'src', 'aggregate_workbook.py');
-const APP_ICON = path.join(__dirname, 'assets', 'icons', 'icon.png');
+const TEMPLATE_PATH = path.join(__dirname, "assets", "dashboard-template.html");
+const DEFAULT_XLSX = path.join(__dirname, "data", "default.xlsx");
+const AGGREGATE_SCRIPT = path.join(__dirname, "src", "aggregate_workbook.py");
+const APP_ICON = path.join(__dirname, "assets", "icons", "icon.png");
 
 // ---------------------------------------------------------------------------
 // Aggregator resolution: prefer the bundled, self-contained PyInstaller
@@ -22,24 +23,32 @@ const APP_ICON = path.join(__dirname, 'assets', 'icons', 'icon.png');
 // to a system Python interpreter running the source script directly.
 // ---------------------------------------------------------------------------
 
-const BUNDLED_EXE_NAME = process.platform === 'win32'
-  ? 'aggregate_workbook.exe'
-  : 'aggregate_workbook';
+const BUNDLED_EXE_NAME =
+  process.platform === "win32"
+    ? "aggregate_workbook.exe"
+    : "aggregate_workbook";
+
+autoUpdater.logger = log;
+autoUpdater.logger.transports.file.level = "debug";
 
 function bundledPythonPath() {
   const resourcesDir = app.isPackaged
     ? process.resourcesPath
-    : path.join(__dirname, 'build-resources');
+    : path.join(__dirname, "build-resources");
   // --onedir output: <resourcesDir>/python/aggregate_workbook/aggregate_workbook(.exe)
   // (a folder containing the exe plus its bundled runtime/libs — chosen
   // over --onefile so repeat launches don't pay a self-extraction cost
   // every time a workbook is loaded; see scripts/build-python.js)
-  return path.join(resourcesDir, 'python', 'aggregate_workbook', BUNDLED_EXE_NAME);
+  return path.join(
+    resourcesDir,
+    "python",
+    "aggregate_workbook",
+    BUNDLED_EXE_NAME,
+  );
 }
 
-const SYSTEM_PYTHON_CANDIDATES = process.platform === 'win32'
-  ? ['python', 'py']
-  : ['python3', 'python'];
+const SYSTEM_PYTHON_CANDIDATES =
+  process.platform === "win32" ? ["python", "py"] : ["python3", "python"];
 
 let resolvedSystemPython = null;
 
@@ -47,7 +56,7 @@ function resolveSystemPython() {
   if (resolvedSystemPython) return resolvedSystemPython;
   for (const candidate of SYSTEM_PYTHON_CANDIDATES) {
     try {
-      execFileSync(candidate, ['--version'], { stdio: 'ignore' });
+      execFileSync(candidate, ["--version"], { stdio: "ignore" });
       resolvedSystemPython = candidate;
       return resolvedSystemPython;
     } catch (_) {
@@ -71,9 +80,9 @@ function resolveAggregatorInvocation(xlsxPath) {
 
   throw new Error(
     `Bundled aggregator not found at ${bundled}, and no system Python ` +
-    `interpreter was found either (tried: ${SYSTEM_PYTHON_CANDIDATES.join(', ')}). ` +
-    `Run "npm run build:python" to build the bundled binary, or install ` +
-    `Python 3 + "pip install openpyxl" for development.`
+      `interpreter was found either (tried: ${SYSTEM_PYTHON_CANDIDATES.join(", ")}). ` +
+      `Run "npm run build:python" to build the bundled binary, or install ` +
+      `Python 3 + "pip install openpyxl" for development.`,
   );
 }
 
@@ -94,49 +103,53 @@ function runAggregator(xlsxPath, onProgress) {
       return;
     }
 
-    if (onProgress) onProgress({ percent: 0, status: 'Starting…' });
+    if (onProgress) onProgress({ percent: 0, status: "Starting…" });
 
     const child = spawn(cmd, args);
-    let stdout = '';
-    let stderrLineBuf = '';
-    let lastErrorLine = '';
+    let stdout = "";
+    let stderrLineBuf = "";
+    let lastErrorLine = "";
 
-    child.stdout.on('data', (chunk) => {
+    child.stdout.on("data", (chunk) => {
       stdout += chunk;
     });
 
-    child.stderr.on('data', (chunk) => {
+    child.stderr.on("data", (chunk) => {
       stderrLineBuf += chunk.toString();
-      const lines = stderrLineBuf.split('\n');
+      const lines = stderrLineBuf.split("\n");
       stderrLineBuf = lines.pop(); // keep the trailing partial line buffered
       for (const line of lines) {
-        if (line.startsWith('PROGRESS:')) {
-          const rest = line.slice('PROGRESS:'.length);
-          const sep = rest.indexOf(':');
+        if (line.startsWith("PROGRESS:")) {
+          const rest = line.slice("PROGRESS:".length);
+          const sep = rest.indexOf(":");
           const pctRaw = sep === -1 ? rest : rest.slice(0, sep);
-          const status = sep === -1 ? '' : rest.slice(sep + 1);
-          const percent = pctRaw === '-' ? null : parseInt(pctRaw, 10);
+          const status = sep === -1 ? "" : rest.slice(sep + 1);
+          const percent = pctRaw === "-" ? null : parseInt(pctRaw, 10);
           if (onProgress) onProgress({ percent, status });
-        } else if (line.startsWith('ERROR:')) {
-          lastErrorLine = line.slice('ERROR:'.length).trim();
+        } else if (line.startsWith("ERROR:")) {
+          lastErrorLine = line.slice("ERROR:".length).trim();
         }
       }
     });
 
-    child.on('error', (err) => {
+    child.on("error", (err) => {
       // e.g. ENOENT if the resolved binary/interpreter can't be launched
       reject(new Error(`Could not start aggregator (${cmd}): ${err.message}`));
     });
 
-    child.on('close', (code) => {
+    child.on("close", (code) => {
       if (code === 0) {
         try {
           resolve(JSON.parse(stdout));
         } catch (err) {
-          reject(new Error(`Failed to parse aggregator output: ${err.message}`));
+          reject(
+            new Error(`Failed to parse aggregator output: ${err.message}`),
+          );
         }
       } else {
-        reject(new Error(lastErrorLine || `Aggregator exited with code ${code}`));
+        reject(
+          new Error(lastErrorLine || `Aggregator exited with code ${code}`),
+        );
       }
     });
   });
@@ -144,8 +157,8 @@ function runAggregator(xlsxPath, onProgress) {
 
 async function buildDashboardHtml(xlsxPath, onProgress) {
   const payload = await runAggregator(xlsxPath, onProgress);
-  const template = fs.readFileSync(TEMPLATE_PATH, 'utf-8');
-  return template.replace('__PAYLOAD__', JSON.stringify(payload));
+  const template = fs.readFileSync(TEMPLATE_PATH, "utf-8");
+  return template.replace("__PAYLOAD__", JSON.stringify(payload));
 }
 
 /**
@@ -155,20 +168,25 @@ async function buildDashboardHtml(xlsxPath, onProgress) {
 async function renderFile(filePath, { onProgress, targetWindow } = {}) {
   try {
     const html = await buildDashboardHtml(filePath, onProgress);
-    const outPath = path.join(app.getPath('userData'), 'dashboard-rendered.html');
-    fs.writeFileSync(outPath, html, 'utf-8');
+    const outPath = path.join(
+      app.getPath("userData"),
+      "dashboard-rendered.html",
+    );
+    fs.writeFileSync(outPath, html, "utf-8");
     currentFilePath = filePath;
     if (targetWindow && !targetWindow.isDestroyed()) {
-      targetWindow.webContents.send('dashboard-ready', {
+      targetWindow.webContents.send("dashboard-ready", {
         outPath,
         fileName: path.basename(filePath),
       });
     }
     return outPath;
   } catch (err) {
-    dialog.showErrorBox('Could not load workbook', err.message);
+    dialog.showErrorBox("Could not load workbook", err.message);
     if (targetWindow && !targetWindow.isDestroyed()) {
-      targetWindow.webContents.send('dashboard-error', { message: err.message });
+      targetWindow.webContents.send("dashboard-error", {
+        message: err.message,
+      });
     }
     return null;
   }
@@ -176,53 +194,61 @@ async function renderFile(filePath, { onProgress, targetWindow } = {}) {
 
 async function openFileDialog() {
   const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
-    title: 'Select GoFresh sales workbook',
-    filters: [{ name: 'Excel workbooks', extensions: ['xlsx', 'xlsm'] }],
-    properties: ['openFile'],
+    title: "Select GoFresh sales workbook",
+    filters: [{ name: "Excel workbooks", extensions: ["xlsx", "xlsm"] }],
+    properties: ["openFile"],
   });
   if (canceled || !filePaths.length) return;
   await renderFile(filePaths[0], {
     targetWindow: mainWindow,
-    onProgress: (p) => mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents.send('load-progress', p),
+    onProgress: (p) =>
+      mainWindow &&
+      !mainWindow.isDestroyed() &&
+      mainWindow.webContents.send("load-progress", p),
   });
 }
 
 function buildMenu() {
   const template = [
     {
-      label: 'File',
+      label: "File",
       submenu: [
-        { label: 'Open Excel File...', accelerator: 'CmdOrCtrl+O', click: openFileDialog },
         {
-          label: 'Reload Current File',
-          accelerator: 'CmdOrCtrl+R',
-          click: () => currentFilePath && renderFile(currentFilePath, {
-            targetWindow: mainWindow,
-            onProgress: (p) => mainWindow.webContents.send('load-progress', p),
-          }),
+          label: "Open Excel File...",
+          accelerator: "CmdOrCtrl+O",
+          click: openFileDialog,
         },
-        { type: 'separator' },
-        { role: 'quit' },
+        {
+          label: "Reload Current File",
+          accelerator: "CmdOrCtrl+R",
+          click: () =>
+            currentFilePath &&
+            renderFile(currentFilePath, {
+              targetWindow: mainWindow,
+              onProgress: (p) =>
+                mainWindow.webContents.send("load-progress", p),
+            }),
+        },
+        { type: "separator" },
+        { role: "quit" },
       ],
     },
     {
-      label: 'View',
+      label: "View",
       submenu: [
-        { role: 'reload' },
-        { role: 'toggleDevTools' },
-        { type: 'separator' },
-        { role: 'resetZoom' },
-        { role: 'zoomIn' },
-        { role: 'zoomOut' },
-        { type: 'separator' },
-        { role: 'togglefullscreen' },
+        { role: "reload" },
+        { role: "toggleDevTools" },
+        { type: "separator" },
+        { role: "resetZoom" },
+        { role: "zoomIn" },
+        { role: "zoomOut" },
+        { type: "separator" },
+        { role: "togglefullscreen" },
       ],
     },
     {
-      label: 'Help',
-      submenu: [
-        { label: 'Check for Updates...', click: checkForUpdates },
-      ],
+      label: "Help",
+      submenu: [{ label: "Check for Updates...", click: checkForUpdates }],
     },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
@@ -236,7 +262,7 @@ function buildMenu() {
 
 function sendUpdateStatus(data) {
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('update-status', data);
+    mainWindow.webContents.send("update-status", data);
   }
 }
 
@@ -244,34 +270,48 @@ function setupAutoUpdater() {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
-  autoUpdater.on('checking-for-update', () => {
-    sendUpdateStatus({ state: 'checking' });
+  autoUpdater.on("checking-for-update", () => {
+    sendUpdateStatus({ state: "checking" });
   });
-  autoUpdater.on('update-available', (info) => {
-    sendUpdateStatus({ state: 'available', version: info.version });
+  autoUpdater.on("update-available", (info) => {
+    sendUpdateStatus({ state: "available", version: info.version });
   });
-  autoUpdater.on('update-not-available', () => {
-    sendUpdateStatus({ state: 'not-available' });
+  autoUpdater.on("update-not-available", () => {
+    sendUpdateStatus({ state: "not-available" });
   });
-  autoUpdater.on('error', (err) => {
-    sendUpdateStatus({ state: 'error', message: err.message });
+  autoUpdater.on("error", (err) => {
+    sendUpdateStatus({ state: "error", message: err.message });
   });
-  autoUpdater.on('download-progress', (progress) => {
-    sendUpdateStatus({ state: 'downloading', percent: Math.round(progress.percent) });
+  autoUpdater.on("download-progress", (progress) => {
+    sendUpdateStatus({
+      state: "downloading",
+      percent: Math.round(progress.percent),
+    });
   });
-  autoUpdater.on('update-downloaded', (info) => {
-    sendUpdateStatus({ state: 'downloaded', version: info.version });
+  autoUpdater.on("update-downloaded", (info) => {
+    sendUpdateStatus({ state: "downloaded", version: info.version });
   });
 }
 
 function checkForUpdates() {
-  if (!app.isPackaged) return; // no update feed in dev
-  autoUpdater.checkForUpdates().catch((err) => {
-    sendUpdateStatus({ state: 'error', message: err.message });
-  });
+  if (!app.isPackaged) {
+    log.info("Skipping update check (dev mode)");
+    return;
+  }
+
+  log.info("Starting update check...");
+  log.info("Current version:", app.getVersion());
+
+  autoUpdater
+    .checkForUpdates()
+    .then((result) => {
+      log.info("Update check result:", result);
+    })
+    .catch((err) => {
+      log.error("Update check failed:", err);
+      sendUpdateStatus({ state: "error", message: err.message });
+    });
 }
-
-
 
 function createSplashWindow() {
   const win = new BrowserWindow({
@@ -287,13 +327,13 @@ function createSplashWindow() {
     skipTaskbar: true,
     icon: fs.existsSync(APP_ICON) ? APP_ICON : undefined,
     webPreferences: {
-      preload: path.join(__dirname, 'splash-preload.js'),
+      preload: path.join(__dirname, "splash-preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
-  win.loadFile(path.join(__dirname, 'assets', 'splash.html'));
-  win.once('ready-to-show', () => win.show());
+  win.loadFile(path.join(__dirname, "assets", "splash.html"));
+  win.once("ready-to-show", () => win.show());
   return win;
 }
 
@@ -306,13 +346,13 @@ function createWindow() {
     show: false,
     icon: fs.existsSync(APP_ICON) ? APP_ICON : undefined,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
 
-  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  mainWindow.loadFile(path.join(__dirname, "index.html"));
   buildMenu();
   return mainWindow;
 }
@@ -330,45 +370,58 @@ async function startup() {
     const remaining = SPLASH_MIN_VISIBLE_MS - elapsed;
     if (remaining > 0) await new Promise((r) => setTimeout(r, remaining));
     if (splashWindow && !splashWindow.isDestroyed()) {
-      splashWindow.webContents.send('splash-done');
+      splashWindow.webContents.send("splash-done");
       setTimeout(() => {
         if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();
         splashWindow = null;
-      }, 260); // matches splash.html's fade-out animation duration
+      }, 260);
     }
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show();
   };
 
-  mainWindow.once('ready-to-show', async () => {
+  mainWindow.once("ready-to-show", async () => {
     if (fs.existsSync(DEFAULT_XLSX)) {
       await renderFile(DEFAULT_XLSX, {
         targetWindow: mainWindow,
-        onProgress: (p) => splashWindow && !splashWindow.isDestroyed() && splashWindow.webContents.send('splash-progress', p),
+        onProgress: (p) =>
+          splashWindow &&
+          !splashWindow.isDestroyed() &&
+          splashWindow.webContents.send("splash-progress", p),
       });
     }
     await finishSplash();
-    checkForUpdates();
   });
+
+  // SAFER: check for updates after app is ready, regardless of splash
+  if (app.isPackaged) {
+    setTimeout(() => {
+      log.info("Checking for updates...");
+      checkForUpdates();
+    }, 5000); // 5 seconds after startup
+  }
 }
 
-ipcMain.handle('open-file-dialog', openFileDialog);
-ipcMain.handle('get-current-file', () => currentFilePath);
-ipcMain.handle('load-dropped-file', async (_event, filePath) => {
+ipcMain.handle("open-file-dialog", openFileDialog);
+ipcMain.handle("get-current-file", () => currentFilePath);
+ipcMain.handle("load-dropped-file", async (_event, filePath) => {
   if (!filePath || !/\.(xlsx|xlsm)$/i.test(filePath)) {
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('dashboard-error', {
-        message: 'Please drop a .xlsx or .xlsm file.',
+      mainWindow.webContents.send("dashboard-error", {
+        message: "Please drop a .xlsx or .xlsm file.",
       });
     }
     return;
   }
   await renderFile(filePath, {
     targetWindow: mainWindow,
-    onProgress: (p) => mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents.send('load-progress', p),
+    onProgress: (p) =>
+      mainWindow &&
+      !mainWindow.isDestroyed() &&
+      mainWindow.webContents.send("load-progress", p),
   });
 });
 
-ipcMain.handle('restart-and-install', () => {
+ipcMain.handle("restart-and-install", () => {
   autoUpdater.quitAndInstall();
 });
 
@@ -376,11 +429,11 @@ setupAutoUpdater();
 
 app.whenReady().then(startup);
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") app.quit();
 });
 
-app.on('activate', () => {
+app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) startup();
 });
 
