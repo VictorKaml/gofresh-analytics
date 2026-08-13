@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-__VERSION__ = "3.0.0"
+__VERSION__ = "4.0.0"
 aggregate_workbook.py
 
 Reads a GoFresh sales workbook and prints the compact
