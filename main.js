@@ -1,5 +1,4 @@
 const { app, BrowserWindow, dialog, Menu, ipcMain } = require("electron");
-const log = require("electron-log");
 const path = require("path");
 const fs = require("fs");
 const { spawn, execFileSync } = require("child_process");
@@ -10,7 +9,16 @@ let splashWindow = null;
 let currentFilePath = null;
 
 const TEMPLATE_PATH = path.join(__dirname, "assets", "dashboard-template.html");
-const DEFAULT_XLSX = path.join(__dirname, "data", "default.xlsx");
+// data/default.xlsx is bundled via the `files` glob, which packs it inside
+// app.asar. Electron's own fs can read into asar transparently, but the
+// aggregator is spawned as an EXTERNAL process (the PyInstaller exe, or the
+// system-python fallback) which cannot read into app.asar at all. The
+// `asarUnpack` entry in package.json's build config extracts data/**/* to
+// a real folder alongside the archive (app.asar.unpacked/data/...) — this
+// path must point there in packaged builds, not into the archive itself.
+const DEFAULT_XLSX = app.isPackaged
+  ? path.join(process.resourcesPath, "app.asar.unpacked", "data", "default.xlsx")
+  : path.join(__dirname, "data", "default.xlsx");
 const AGGREGATE_SCRIPT = path.join(__dirname, "src", "aggregate_workbook.py");
 const APP_ICON = path.join(__dirname, "assets", "icons", "icon.png");
 
@@ -27,9 +35,6 @@ const BUNDLED_EXE_NAME =
   process.platform === "win32"
     ? "aggregate_workbook.exe"
     : "aggregate_workbook";
-
-autoUpdater.logger = log;
-autoUpdater.logger.transports.file.level = "debug";
 
 function bundledPythonPath() {
   const resourcesDir = app.isPackaged
@@ -327,21 +332,10 @@ app.on("before-quit", (event) => {
 });
 
 function checkForUpdates() {
-  if (!app.isPackaged) {
-    log.info("Skipping update check (dev mode)");
-    return;
-  }
-
-  log.info("Starting update check...");
-  log.info("Current version:", app.getVersion());
 
   autoUpdater
     .checkForUpdates()
-    .then((result) => {
-      log.info("Update check result:", result);
-    })
     .catch((err) => {
-      log.error("Update check failed:", err);
       sendUpdateStatus({ state: "error", message: err.message });
     });
 }
@@ -428,7 +422,6 @@ async function startup() {
   // SAFER: check for updates after app is ready, regardless of splash
   if (app.isPackaged) {
     setTimeout(() => {
-      log.info("Checking for updates...");
       checkForUpdates();
     }, 5000); // 5 seconds after startup
   }

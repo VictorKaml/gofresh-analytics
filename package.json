@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/package.json",
   "name": "gofresh-sales-dashboard",
   "productName": "GoFresh Sales Dashboard",
-  "version": "1.0.7",
+  "version": "1.1.1",
   "description": "GoFresh RetailMax Sales Intelligence Dashboard (desktop app)",
   "main": "main.js",
   "scripts": {
@@ -16,13 +16,15 @@
   "author": "",
   "license": "UNLICENSED",
   "dependencies": {
-    "electron-log": "^5.4.4",
     "electron-updater": "^6.3.9"
   },
   "devDependencies": {
     "dotenv-cli": "^7.4.2",
     "electron": "^31.7.7",
     "electron-builder": "^24.13.3"
+  },
+  "overrides": {
+    "yauzl": "^3.3.1"
   },
   "build": {
     "appId": "com.gofresh.salesdashboard",
@@ -33,6 +35,9 @@
       "splash-preload.js",
       "index.html",
       "assets/**/*",
+      "data/**/*"
+    ],
+    "asarUnpack": [
       "data/**/*"
     ],
     "icon": "assets/icons/icon.ico",
