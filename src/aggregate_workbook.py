@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 """
+__VERSION__ = "1.2.0"
 aggregate_workbook.py
 
 Reads a GoFresh sales workbook and prints the compact
-{ lookups, rows, n_rows, n_invoices } JSON payload to stdout.
+{ lookups, bva, rows, n_rows, n_invoices } JSON payload to stdout.
+
+If a "budgetpershop" sheet is present, its Budget vs Actual data is read
+and included under the "bva" key (matching generate_dashboard.py's BVA
+tab); if the sheet is absent, "bva" is still emitted with empty
+entries/detail so the dashboard's BVA tab can show "no budget loaded".
 
 This is the same aggregate()/build_payload() logic as
 generate_dashboard.py, factored out so the Electron app can shell out to
@@ -147,6 +153,7 @@ def aggregate(in_path):
         total_est = 0
 
     shops, regs, prods, segs, cats, dates, invs = {}, {}, {}, {}, {}, {}, {}
+    prod_cat = {}   # prodIdx -> catIdx (first seen), used to map budget lines to categories
     rows = []
     scanned = 0
     last_reported_pct = None
@@ -167,15 +174,20 @@ def aggregate(in_path):
 
         d = date.strftime("%Y-%m-%d")
 
+        p_idx = idx(prods, r[col["ProductName"]])
+        c_idx = idx(cats, r[col["Category"]])
+        if p_idx >= 0 and c_idx >= 0 and p_idx not in prod_cat:
+            prod_cat[p_idx] = c_idx
+
         rows.append([
             idx(dates, d),
             r[col["Hour"]] if r[col["Hour"]] not in (None, "") else -1,
             r[col["Weekday"]] if r[col["Weekday"]] not in (None, "") else -1,
             idx(shops, r[col["ShopName"]]),
             idx(regs, r[col["Region"]]),
-            idx(prods, r[col["ProductName"]]),
+            p_idx,
             idx(segs, r[col["Segment"]]),
-            idx(cats, r[col["Category"]]),
+            c_idx,
             round(numify(r[col["Qty"]]), 2),
             round(numify(r[col["Amount"]]), 0),
             round(numify(r[col["Volume"]]) if has_volume else 0.0, 2),
@@ -205,6 +217,72 @@ def aggregate(in_path):
     for row in rows:
         row[0] = remap[row[0]]
 
+    # ---- Budget vs Actual: read the budgetpershop sheet if present ----
+    progress(92, "Reading budget sheet")
+    bva_entries = {}
+    bva_detail = []
+    BVA_SEGS = ["Chicken", "Beef", "Egg", "Trading", "Oil"]
+    if "budgetpershop" in wb.sheet_names:
+        bws = wb.get_sheet_by_name("budgetpershop")
+        prod_lookup = {name: i for name, i in prods.items()}
+        shop_lookup = {name: i for name, i in shops.items()}
+        cats_list = list(cats.keys())
+        cat_norm = {}
+        for name, i in cats.items():
+            key = (name or "").strip().lower()
+            cat_norm.setdefault(key, i)
+        va_idx = cat_norm.get("value added", -1)
+        n_budget = 0
+        header_found = False
+        for row in itertools.islice(bws.iter_rows(), 4000):
+            if not header_found:
+                if row and len(row) >= 2 and row[0] == "Shop" and row[1] == "Product":
+                    header_found = True
+                continue
+            # calamine trims trailing blank cells, so rows may be shorter than
+            # the sheet's full width. Pad with "" to match openpyxl behaviour.
+            if not row or row[0] in (None, ""):
+                continue
+            if len(row) < 24:
+                row = list(row) + [""] * (24 - len(row))
+            shop_name, prod_name, seg = row[0], row[1], row[2]
+            if seg not in BVA_SEGS:
+                continue
+            dailies = [numify(v) for v in row[11:16]]
+            if not any(dailies):
+                continue
+            s_idx = shop_lookup.get(shop_name, -1)
+            if s_idx < 0:
+                continue
+            if prod_name and "floor top-up" in str(prod_name).lower():
+                c_idx = cat_norm.get("oil", -1)
+                p_idx = idx(prods, "Oil — A-grade floor top-up")
+            else:
+                p_idx = prod_lookup.get(prod_name, -1)
+                if p_idx < 0:
+                    p_idx = idx(prods, prod_name)  # budget-only product (not yet sold)
+                c_idx = prod_cat.get(p_idx, -1)
+                cname = (cats_list[c_idx].strip().lower() if 0 <= c_idx < len(cats_list) else "")
+                if cname == "value added" and va_idx >= 0:
+                    c_idx = va_idx
+            key = (s_idx, BVA_SEGS.index(seg), c_idx)
+            acc = bva_entries.setdefault(key, [0.0] * 5)
+            for j in range(5):
+                acc[j] += dailies[j]
+            try:
+                price = float(row[23]) if row[23] not in (None, '', '#N/A') else 0.0
+            except (TypeError, ValueError):
+                price = 0.0
+            bva_detail.append([s_idx, p_idx, BVA_SEGS.index(seg), c_idx]
+                              + [round(v, 2) for v in dailies]
+                              + [round(price, 2)])
+            n_budget += 1
+        log(f"  budgetpershop: {n_budget:,} budget lines read -> {len(bva_entries):,} shop x segment x category entries")
+        if n_budget == 0:
+            log("  WARNING: budgetpershop sheet exists but no values could be read.")
+    else:
+        log("  budgetpershop sheet not found - Budget vs Actual tab will show 'no budget loaded'")
+
     progress(96, "Building dashboard payload")
 
     return {
@@ -215,6 +293,16 @@ def aggregate(in_path):
             "segs": list(segs.keys()),
             "cats": list(cats.keys()),
             "dates": sorted_dates,
+        },
+        "bva": {
+            "segs": BVA_SEGS,
+            "units": {"Chicken": "kg", "Beef": "kg", "Egg": "packs", "Trading": "units", "Oil": "L"},
+            "months": ["2026-08", "2026-09", "2026-10", "2026-11", "2026-12"],
+            "month_labels": ["Aug 2026", "Sep 2026", "Oct 2026", "Nov 2026", "Dec 2026"],
+            "days_in_month": [31, 30, 31, 30, 31],
+            "entries": [[k[0], k[1], k[2]] + [round(v, 2) for v in vals]
+                        for k, vals in sorted(bva_entries.items())],
+            "detail": bva_detail,
         },
         "rows": rows,
         "n_rows": len(rows),

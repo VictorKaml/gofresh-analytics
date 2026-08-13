@@ -9,13 +9,6 @@ let splashWindow = null;
 let currentFilePath = null;
 
 const TEMPLATE_PATH = path.join(__dirname, "assets", "dashboard-template.html");
-// data/default.xlsx is bundled via the `files` glob, which packs it inside
-// app.asar. Electron's own fs can read into asar transparently, but the
-// aggregator is spawned as an EXTERNAL process (the PyInstaller exe, or the
-// system-python fallback) which cannot read into app.asar at all. The
-// `asarUnpack` entry in package.json's build config extracts data/**/* to
-// a real folder alongside the archive (app.asar.unpacked/data/...) — this
-// path must point there in packaged builds, not into the archive itself.
 const DEFAULT_XLSX = app.isPackaged
   ? path.join(process.resourcesPath, "app.asar.unpacked", "data", "default.xlsx")
   : path.join(__dirname, "data", "default.xlsx");
@@ -23,12 +16,7 @@ const AGGREGATE_SCRIPT = path.join(__dirname, "src", "aggregate_workbook.py");
 const APP_ICON = path.join(__dirname, "assets", "icons", "icon.png");
 
 // ---------------------------------------------------------------------------
-// Aggregator resolution: prefer the bundled, self-contained PyInstaller
-// binary (built by `npm run build:python`, see build-resources/python/).
-// Packaged builds ship this under process.resourcesPath/python/ via
-// electron-builder's `extraResources`; end users need no system Python
-// install at all. In dev, if that binary hasn't been built yet, fall back
-// to a system Python interpreter running the source script directly.
+// Aggregator resolution
 // ---------------------------------------------------------------------------
 
 const BUNDLED_EXE_NAME =
@@ -40,10 +28,6 @@ function bundledPythonPath() {
   const resourcesDir = app.isPackaged
     ? process.resourcesPath
     : path.join(__dirname, "build-resources");
-  // --onedir output: <resourcesDir>/python/aggregate_workbook/aggregate_workbook(.exe)
-  // (a folder containing the exe plus its bundled runtime/libs — chosen
-  // over --onefile so repeat launches don't pay a self-extraction cost
-  // every time a workbook is loaded; see scripts/build-python.js)
   return path.join(
     resourcesDir,
     "python",
@@ -71,32 +55,64 @@ function resolveSystemPython() {
   return null;
 }
 
+/**
+ * Returns true if the bundled binary exists AND is newer than the source
+ * script. In development we ALWAYS prefer the live script so edits are
+ * picked up without running `npm run build:python`.
+ */
+function shouldUseBundledBinary() {
+  const bundled = bundledPythonPath();
+  if (!fs.existsSync(bundled)) return false;
+
+  // In dev, always prefer the script so Python fixes are immediate
+  if (!app.isPackaged) {
+    console.log("[aggregator] Dev mode — preferring live Python script");
+    return false;
+  }
+
+  // In packaged builds, only use the binary if it is newer than the script
+  try {
+    const binMtime = fs.statSync(bundled).mtimeMs;
+    const scriptMtime = fs.statSync(AGGREGATE_SCRIPT).mtimeMs;
+    if (binMtime < scriptMtime) {
+      console.warn(
+        `[aggregator] Bundled binary is OLDER than ${path.basename(
+          AGGREGATE_SCRIPT,
+        )}. Falling back to system Python so the latest script runs.`,
+      );
+      return false;
+    }
+  } catch (_) {
+    // If we can't stat either file, play it safe and use the binary
+  }
+  return true;
+}
+
 /** Returns { cmd, args } describing how to invoke the aggregator. */
 function resolveAggregatorInvocation(xlsxPath) {
-  const bundled = bundledPythonPath();
-  if (fs.existsSync(bundled)) {
+  if (shouldUseBundledBinary()) {
+    const bundled = bundledPythonPath();
+    console.log("[aggregator] Using bundled binary:", bundled);
     return { cmd: bundled, args: [xlsxPath] };
   }
 
   const python = resolveSystemPython();
   if (python) {
+    console.log("[aggregator] Using system Python:", python, AGGREGATE_SCRIPT);
     return { cmd: python, args: [AGGREGATE_SCRIPT, xlsxPath] };
   }
 
   throw new Error(
-    `Bundled aggregator not found at ${bundled}, and no system Python ` +
+    `Bundled aggregator not found at ${bundledPythonPath()}, and no system Python ` +
       `interpreter was found either (tried: ${SYSTEM_PYTHON_CANDIDATES.join(", ")}). ` +
       `Run "npm run build:python" to build the bundled binary, or install ` +
-      `Python 3 + "pip install openpyxl" for development.`,
+      `Python 3 + "pip install python-calamine" for development.`,
   );
 }
 
 /**
  * Runs the aggregator as a subprocess (streaming, non-blocking) and
- * resolves with the parsed { lookups, rows, n_rows, n_invoices } payload.
- * Progress lines on stderr ("PROGRESS:<percent-or-dash>:<status>") are
- * parsed in real time and reported via onProgress({ percent, status }),
- * where percent is 0-100 or null for an indeterminate/spinner state.
+ * resolves with the parsed payload.
  */
 function runAggregator(xlsxPath, onProgress) {
   return new Promise((resolve, reject) => {
@@ -138,14 +154,20 @@ function runAggregator(xlsxPath, onProgress) {
     });
 
     child.on("error", (err) => {
-      // e.g. ENOENT if the resolved binary/interpreter can't be launched
       reject(new Error(`Could not start aggregator (${cmd}): ${err.message}`));
     });
 
     child.on("close", (code) => {
       if (code === 0) {
         try {
-          resolve(JSON.parse(stdout));
+          const payload = JSON.parse(stdout);
+          // Diagnostic: log budget counts so DevTools shows them immediately
+          const bva = payload.bva || {};
+          console.log(
+            `[aggregator] rows=${payload.n_rows} invoices=${payload.n_invoices} ` +
+              `bva.entries=${bva.entries?.length ?? 0} bva.detail=${bva.detail?.length ?? 0}`,
+          );
+          resolve(payload);
         } catch (err) {
           reject(
             new Error(`Failed to parse aggregator output: ${err.message}`),
@@ -173,11 +195,28 @@ async function buildDashboardHtml(xlsxPath, onProgress) {
 async function renderFile(filePath, { onProgress, targetWindow } = {}) {
   try {
     const html = await buildDashboardHtml(filePath, onProgress);
-    const outPath = path.join(
-      app.getPath("userData"),
-      "dashboard-rendered.html",
-    );
+
+    // Cache-bust: write to a unique filename so the renderer never loads
+    // a stale cached version from a previous run.
+    const outDir = app.getPath("userData");
+    const outName = `dashboard-rendered-${Date.now()}.html`;
+    const outPath = path.join(outDir, outName);
     fs.writeFileSync(outPath, html, "utf-8");
+
+    // Clean up old rendered files (keep last 10)
+    try {
+      const files = fs
+        .readdirSync(outDir)
+        .filter((f) => f.startsWith("dashboard-rendered-") && f.endsWith(".html"))
+        .map((f) => ({ name: f, mtime: fs.statSync(path.join(outDir, f)).mtimeMs }))
+        .sort((a, b) => b.mtime - a.mtime);
+      for (const old of files.slice(10)) {
+        fs.unlinkSync(path.join(outDir, old.name));
+      }
+    } catch (_) {
+      // ignore cleanup errors
+    }
+
     currentFilePath = filePath;
     if (targetWindow && !targetWindow.isDestroyed()) {
       targetWindow.webContents.send("dashboard-ready", {
@@ -231,7 +270,7 @@ function buildMenu() {
             renderFile(currentFilePath, {
               targetWindow: mainWindow,
               onProgress: (p) =>
-                mainWindow.webContents.send("load-progress", p),
+                mainWindow && mainWindow.webContents.send("load-progress", p),
             }),
         },
         { type: "separator" },
@@ -260,9 +299,7 @@ function buildMenu() {
 }
 
 // ---------------------------------------------------------------------------
-// Auto-update (electron-updater, GitHub Releases provider — see the
-// "publish" block in package.json). Only runs in packaged builds: dev runs
-// have no update feed and checking would just log noisy errors.
+// Auto-update
 // ---------------------------------------------------------------------------
 
 function sendUpdateStatus(data) {
@@ -271,29 +308,17 @@ function sendUpdateStatus(data) {
   }
 }
 
-// Tracks whether an update has finished downloading and is ready to be
-// installed. Used so that if the app quits (for any reason) while an
-// update is pending, we can force a silent install + relaunch instead of
-// silently updating and leaving the app closed (electron-updater's
-// built-in "install on quit" path installs silently but does NOT relaunch
-// the app afterward — that's the bug this works around).
 let updateReadyToInstall = false;
 let installTriggered = false;
 
 function silentInstallAndRelaunch() {
   if (installTriggered) return;
   installTriggered = true;
-  // isSilent = true (no NSIS wizard shown), isForceRunAfter = true
-  // (guarantees the app reopens once the silent install finishes).
   autoUpdater.quitAndInstall(true, true);
 }
 
 function setupAutoUpdater() {
   autoUpdater.autoDownload = true;
-  // We handle installing on quit ourselves (see the "before-quit" handler
-  // below) so that we can force the app to relaunch afterward. The
-  // built-in autoInstallOnAppQuit path installs silently but never
-  // relaunches, which left the app "updated" but not running.
   autoUpdater.autoInstallOnAppQuit = false;
 
   autoUpdater.on("checking-for-update", () => {
@@ -320,10 +345,6 @@ function setupAutoUpdater() {
   });
 }
 
-// If the app is closed (window closed, Cmd/Ctrl+Q, OS logout, etc.) while
-// an update has finished downloading, install it and relaunch instead of
-// just quitting and leaving the update un-applied until the user manually
-// reopens the app.
 app.on("before-quit", (event) => {
   if (updateReadyToInstall && !installTriggered) {
     event.preventDefault();
@@ -332,12 +353,9 @@ app.on("before-quit", (event) => {
 });
 
 function checkForUpdates() {
-
-  autoUpdater
-    .checkForUpdates()
-    .catch((err) => {
-      sendUpdateStatus({ state: "error", message: err.message });
-    });
+  autoUpdater.checkForUpdates().catch((err) => {
+    sendUpdateStatus({ state: "error", message: err.message });
+  });
 }
 
 function createSplashWindow() {
@@ -419,11 +437,10 @@ async function startup() {
     await finishSplash();
   });
 
-  // SAFER: check for updates after app is ready, regardless of splash
   if (app.isPackaged) {
     setTimeout(() => {
       checkForUpdates();
-    }, 5000); // 5 seconds after startup
+    }, 5000);
   }
 }
 
@@ -463,5 +480,4 @@ app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) startup();
 });
 
-// Check again periodically for anyone who leaves the app open a long time.
-setInterval(checkForUpdates, 4 * 60 * 60 * 1000); // every 4 hours
+setInterval(checkForUpdates, 4 * 60 * 60 * 1000);

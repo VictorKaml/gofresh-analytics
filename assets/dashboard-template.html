@@ -79,6 +79,10 @@
     <button class="tab" data-p="products">🏆 Products</button>
     <button class="tab" data-p="time">🕐 Time Patterns</button>
     <button class="tab" data-p="regions">🌍 Regions</button>
+    <button class="tab" data-p="bva">⚖️ Budget vs Actual</button>
+    <button class="tab" data-p="bvd">🔎 Budget Analysis</button>
+    <button class="tab" data-p="bvv">📦 BvA — Volume &amp; Value</button>
+    <button class="tab" data-p="bvp">💰 BvA — Value Analysis</button>
     <button class="tab" data-p="data">📋 Raw Tables</button>
   </div>
 
@@ -199,6 +203,88 @@
     </div>
     <div class="card" style="margin-top:16px"><h3>📈 Month-on-Month Sales by Region</h3><div class="chart-box tall"><canvas id="cRegMonth"></canvas></div></div>
     <div class="card" style="margin-top:16px"><h3>Region Performance</h3><table id="tReg"></table></div>
+  </div>
+
+  <div class="panel" id="p-bva">
+    <div class="filter-row" style="background:#fff;padding:12px 16px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <label>Month:</label><select id="bvaMonth"></select>
+      <label>Reporting day:</label><select id="bvaDay"></select>
+      <label>Shop:</label><select id="bvaShop" style="min-width:260px"></select>
+      <span id="bvaInfo" style="color:#16a34a;font-weight:500;font-size:12px;margin-left:auto"></span>
+    </div>
+    <div class="insight" style="margin-top:14px">Budget source: 'budgetpershop' sheet (kg/day per shop per product, scaled to 200T chicken / 50T beef per month group targets). Day = sales on the reporting day vs daily budget. MTD = 1st of month through the reporting day vs daily budget × days elapsed. Units: Chicken/Beef in kg, Egg in packs, Trading in units, Oil in litres. This tab uses its own month/day selection and ignores the global date filter.</div>
+    <div class="card"><h3>MTD Actual vs Budget by Segment</h3><div class="chart-box"><canvas id="cBva"></canvas></div></div>
+    <div class="card" style="margin-top:16px"><h3 id="bvaTitle">Day & MTD — Sales vs Budget</h3><table id="tBva"></table></div>
+  </div>
+
+  <div class="panel" id="p-bvd">
+    <div class="filter-row" style="background:#fff;padding:12px 16px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);flex-wrap:wrap;gap:10px">
+      <label>Month:</label><select id="bvdMonth"></select>
+      <label>Day:</label><select id="bvdDay"></select>
+      <label>Region:</label><select id="bvdRegion"></select>
+      <label>Shop:</label><select id="bvdShop" style="max-width:230px"></select>
+      <label>Segment:</label><select id="bvdSeg"></select>
+      <label>Shop search:</label><input id="bvdShopQ" type="text" placeholder="e.g. HOM* or *Mzuzu" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;font-family:inherit;width:150px">
+      <label>Product:</label><input id="bvdProd" type="text" placeholder="e.g. *wings* or CP*500G | fillet" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;font-family:inherit;width:200px">
+      <label>Sort:</label><select id="bvdSort">
+        <option value="budget">MTD Budget (high→low)</option>
+        <option value="actual">MTD Actual (high→low)</option>
+        <option value="shopaz">Shop A–Z · products by volume</option>
+        <option value="shopaz_pct">Shop A–Z · products by MTD % vs budget</option>
+        <option value="shopvol">Shop by volume · products by volume</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="bvdSub" checked> Shop subtotals</label>
+      <span id="bvdInfo" style="color:#16a34a;font-weight:500;font-size:12px;margin-left:auto"></span>
+    </div>
+    <div class="insight" style="margin-top:14px">Product-level Sales vs Budget for the filtered scope. Units follow each line's budget (Chicken/Beef kg · Egg packs · Trading units · Oil litres). Products with sales but no budget line appear with Budget 0; budget lines with no sales yet show Actual 0. Table capped at 500 rows — narrow the filters to drill in. Shop-grouped sorts order products highest→lowest volume within each shop; the subtotal option adds a shop total row (note: subtotals mix units unless a single segment is selected). Independent of the global date filter.</div>
+    <div class="grid2" style="margin-top:14px">
+      <div class="card"><h3>Scope Summary — Day &amp; MTD</h3><table id="tBvdSum"></table></div>
+      <div class="card"><h3>Top 12 Over / Under Budget (MTD, filtered scope)</h3><div class="chart-box tall"><canvas id="cBvd"></canvas></div></div>
+    </div>
+    <div class="card" style="margin-top:16px"><h3 id="bvdTitle">Product Detail — Sales vs Budget</h3><table id="tBvd"></table></div>
+  </div>
+
+  <div class="panel" id="p-bvv">
+    <div class="filter-row" style="background:#fff;padding:12px 16px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <label>Month:</label><select id="bvvMonth"></select>
+      <label>Reporting day:</label><select id="bvvDay"></select>
+      <label>Shop:</label><select id="bvvShop" style="min-width:260px"></select>
+      <span id="bvvInfo" style="color:#16a34a;font-weight:500;font-size:12px;margin-left:auto"></span>
+    </div>
+    <div class="insight" style="margin-top:14px">Volume = kg (Chicken/Beef), packs (Egg), units (Trading), litres (Oil). Value = Budget volume × selling price from budgetpershop col X. Actual value = MWK from data all. Day / MTD logic same as Budget vs Actual tab.</div>
+    <div class="card" style="margin-top:14px"><h3 id="bvvTitle">Volume &amp; Value vs Budget</h3><table id="tBvv"></table></div>
+    <div class="grid2" style="margin-top:14px">
+      <div class="card"><h3>MTD Volume vs Budget</h3><div class="chart-box"><canvas id="cBvvVol"></canvas></div></div>
+      <div class="card"><h3>MTD Value vs Budget (MWK)</h3><div class="chart-box"><canvas id="cBvvVal"></canvas></div></div>
+    </div>
+  </div>
+
+  <div class="panel" id="p-bvp">
+    <div class="filter-row" style="background:#fff;padding:12px 16px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);flex-wrap:wrap;gap:10px">
+      <label>Month:</label><select id="bvpMonth"></select>
+      <label>Day:</label><select id="bvpDay"></select>
+      <label>Region:</label><select id="bvpRegion"></select>
+      <label>Shop:</label><select id="bvpShop" style="max-width:230px"></select>
+      <label>Segment:</label><select id="bvpSeg"></select>
+      <label>Product:</label><input id="bvpProd" type="text" placeholder="e.g. *wings* | fillet" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;font-family:inherit;width:180px">
+      <label>Shop search:</label><input id="bvpShopQ" type="text" placeholder="e.g. HOM* | *Mzuzu" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;font-family:inherit;width:150px">
+      <label>Sort:</label><select id="bvpSort">
+        <option value="budget">MTD Budget Value (high→low)</option>
+        <option value="actual">MTD Actual Value (high→low)</option>
+        <option value="var">MTD Variance (worst first)</option>
+        <option value="pct">MTD % vs budget (worst first)</option>
+        <option value="shopaz">Shop A–Z · products by value</option>
+        <option value="shopvol">Shop by value · products by value</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="bvpSub" checked> Shop subtotals</label>
+      <span id="bvpInfo" style="color:#16a34a;font-weight:500;font-size:12px;margin-left:auto"></span>
+    </div>
+    <div class="insight" style="margin-top:14px">All values in MWK. Budget Value = budget vol/day × selling price × days elapsed (MTD). Actual Value = MWK from data all. Products with no price set show Budget Value 0. Table capped at 500 rows — narrow filters to drill in. Independent of global date filter.</div>
+    <div class="grid2" style="margin-top:14px">
+      <div class="card"><h3>Scope Summary (MWK)</h3><table id="tBvpSum"></table></div>
+      <div class="card"><h3>Top 12 Over / Under Budget Value (MTD)</h3><div class="chart-box tall"><canvas id="cBvp"></canvas></div></div>
+    </div>
+    <div class="card" style="margin-top:16px"><h3 id="bvpTitle">Product Value Detail — MWK vs Budget</h3><table id="tBvp"></table></div>
   </div>
 
   <div class="panel" id="p-data">
@@ -959,6 +1045,643 @@ function renderProducts() {
     '<thead><tr><th>#</th><th>Product</th><th>Segment</th><th>Category</th><th class="num">Revenue (MWK)</th><th class="num">Qty</th><th class="num">Volume (kg)</th><th class="num">MWK / kg</th><th class="num">Avg Basket</th><th class="num">Baskets</th><th class="num">% of Total</th></tr></thead><tbody>'+rows+'</tbody>';
 }
 
+
+// ==========================================================================
+// Budget vs Actual tab (independent of the global date filter)
+// ==========================================================================
+const BVA = PAYLOAD.bva || {segs:[],entries:[],months:[],days_in_month:[],units:{},month_labels:[]};
+
+function bvaInit() {
+  const mSel = document.getElementById('bvaMonth');
+  const dSel = document.getElementById('bvaDay');
+  const sSel = document.getElementById('bvaShop');
+  mSel.innerHTML = BVA.months.map((m,i)=>`<option value="${i}">${BVA.month_labels[i]}</option>`).join('');
+  // shops that have budget entries, ordered by name
+  const shopIdxs = [...new Set(BVA.entries.map(e=>e[0]))].sort((a,b)=>L.shops[a].localeCompare(L.shops[b]));
+  sSel.innerHTML = '<option value="-1">All shops</option>' +
+    shopIdxs.map(i=>`<option value="${i}">${L.shops[i]}</option>`).join('');
+  // defaults: current month/day if inside Aug–Dec 2026
+  const now = new Date();
+  const nowKey = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  const mi = BVA.months.indexOf(nowKey);
+  mSel.value = mi >= 0 ? mi : 0;
+  bvaFillDays();
+  if (mi >= 0) dSel.value = Math.min(now.getDate(), BVA.days_in_month[mi]);
+  mSel.onchange = () => { bvaFillDays(); renderBvA(); };
+  dSel.onchange = renderBvA;
+  sSel.onchange = renderBvA;
+  renderBvA();
+}
+
+function bvaFillDays() {
+  const mi = +document.getElementById('bvaMonth').value;
+  const dSel = document.getElementById('bvaDay');
+  const keep = +dSel.value || 1;
+  const n = BVA.days_in_month[mi] || 31;
+  dSel.innerHTML = Array.from({length:n},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
+  dSel.value = Math.min(keep, n);
+}
+
+function bvaClassify(r) {
+  // returns [bvaSegIdx, catIdx, measure] or null
+  const seg = r[6] >= 0 ? L.segs[r[6]] : null;
+  if (seg === 'Chicken') return [0, r[7], r[10]];
+  if (seg === 'Beef') return [1, r[7], r[10]];
+  if (seg === 'Egg') return [2, r[7], r[8]];
+  if (seg === 'Trading') {
+    const cat = r[7] >= 0 ? L.cats[r[7]] : '';
+    if (cat === 'Oil') return [4, r[7], r[10]];
+    return [3, r[7], r[8]];
+  }
+  return null;
+}
+
+function renderBvA() {
+  if (!BVA.entries.length) {
+    document.getElementById('tBva').innerHTML = '<tr><td style="padding:14px">No budget loaded — the source workbook has no budgetpershop sheet.</td></tr>';
+    return;
+  }
+  const mi = +document.getElementById('bvaMonth').value;
+  const day = +document.getElementById('bvaDay').value;
+  const shopSel = +document.getElementById('bvaShop').value;
+  const monthKey = BVA.months[mi];
+
+  // ---- budget: per seg×cat daily rate for scope ----
+  const budDaily = new Map();  // 'segIdx|catIdx' -> per-day budget
+  for (const e of BVA.entries) {
+    if (shopSel >= 0 && e[0] !== shopSel) continue;
+    const k = e[1] + '|' + e[2];
+    budDaily.set(k, (budDaily.get(k) || 0) + e[3 + mi]);
+  }
+
+  // ---- actuals: single pass over ROWS for the selected month/shop ----
+  const actDay = new Map(), actMTD = new Map();
+  for (let i = 0; i < ROWS.length; i++) {
+    const r = ROWS[i];
+    const ds = L.dates[r[0]];
+    if (!ds.startsWith(monthKey)) continue;
+    if (shopSel >= 0 && r[3] !== shopSel) continue;
+    const cls = bvaClassify(r);
+    if (!cls) continue;
+    const d = +ds.slice(8);
+    if (d > day) continue;
+    const k = cls[0] + '|' + cls[1];
+    actMTD.set(k, (actMTD.get(k) || 0) + cls[2]);
+    if (d === day) actDay.set(k, (actDay.get(k) || 0) + cls[2]);
+  }
+
+  // ---- assemble rows grouped by segment ----
+  const allKeys = new Set([...budDaily.keys(), ...actMTD.keys()]);
+  const bySeg = new Map();
+  for (const k of allKeys) {
+    const [si, ci] = k.split('|').map(Number);
+    if (!bySeg.has(si)) bySeg.set(si, []);
+    bySeg.get(si).push(ci);
+  }
+  const fmtV = v => (Math.abs(v) >= 100 ? fmt(Math.round(v)) : v.toFixed(1));
+  const pct = (a, b) => b ? ((a / b - 1) * 100).toFixed(1) + '%' : (a ? '—' : '0.0%');
+  const varCell = (a, b) => {
+    const v = a - b;
+    const color = v >= 0 ? '#15803d' : '#b91c1c';
+    return `<td class="num" style="color:${color}">${v >= 0 ? '+' : ''}${fmtV(v)}</td><td class="num" style="color:${color}">${pct(a, b)}</td>`;
+  };
+
+  let html = '<thead><tr><th>Segment / Category</th><th>Unit</th>' +
+    '<th class="num">Day Budget</th><th class="num">Day Actual</th><th class="num">Day Var</th><th class="num">Day %</th>' +
+    '<th class="num">MTD Budget</th><th class="num">MTD Actual</th><th class="num">MTD Var</th><th class="num">MTD %</th></tr></thead><tbody>';
+
+  const segOrder = [0, 1, 2, 3, 4];
+  const chartBud = [], chartAct = [], chartLbl = [];
+  for (const si of segOrder) {
+    if (!bySeg.has(si)) continue;
+    const unit = BVA.units[BVA.segs[si]];
+    let segBudD = 0, segActD = 0, segBudM = 0, segActM = 0;
+    const catRows = [];
+    const cats = [...new Set(bySeg.get(si))].sort((a, b) =>
+      (budDaily.get(si + '|' + b) || 0) - (budDaily.get(si + '|' + a) || 0));
+    for (const ci of cats) {
+      const k = si + '|' + ci;
+      const bd = budDaily.get(k) || 0;
+      const ad = actDay.get(k) || 0;
+      const bm = bd * day;
+      const am = actMTD.get(k) || 0;
+      segBudD += bd; segActD += ad; segBudM += bm; segActM += am;
+      const cname = ci >= 0 ? (L.cats[ci] || 'Uncategorised') : 'Uncategorised';
+      catRows.push(`<tr><td style="padding-left:24px">${cname}</td><td>${unit}</td>` +
+        `<td class="num">${fmtV(bd)}</td><td class="num">${fmtV(ad)}</td>${varCell(ad, bd)}` +
+        `<td class="num">${fmtV(bm)}</td><td class="num">${fmtV(am)}</td>${varCell(am, bm)}</tr>`);
+    }
+    html += `<tr style="background:#f0fdf4;font-weight:700"><td>${BVA.segs[si]}</td><td>${unit}</td>` +
+      `<td class="num">${fmtV(segBudD)}</td><td class="num">${fmtV(segActD)}</td>${varCell(segActD, segBudD)}` +
+      `<td class="num">${fmtV(segBudM)}</td><td class="num">${fmtV(segActM)}</td>${varCell(segActM, segBudM)}</tr>`;
+    html += catRows.join('');
+    chartLbl.push(BVA.segs[si]); chartBud.push(segBudM); chartAct.push(segActM);
+  }
+  html += '</tbody>';
+  document.getElementById('tBva').innerHTML = html;
+
+  const shopName = shopSel >= 0 ? L.shops[shopSel] : 'All shops';
+  document.getElementById('bvaTitle').textContent =
+    `Day & MTD — Sales vs Budget · ${shopName} · ${BVA.month_labels[mi]}, day ${day}`;
+  document.getElementById('bvaInfo').textContent =
+    `${shopName} · MTD through ${monthKey}-${String(day).padStart(2, '0')}`;
+
+  if (CHARTS.cBva) { try { CHARTS.cBva.destroy(); } catch (e) {} }
+  CHARTS.cBva = new Chart(document.getElementById('cBva'), { type: 'bar',
+    data: { labels: chartLbl, datasets: [
+      { label: 'MTD Budget', data: chartBud, backgroundColor: '#94a3b8' },
+      { label: 'MTD Actual', data: chartAct, backgroundColor: '#16a34a' }] },
+    options: { maintainAspectRatio: false, plugins: { legend: { position: 'top' },
+      tooltip: { callbacks: { label: c => c.dataset.label + ': ' + fmt(Math.round(c.parsed.y)) } } },
+      scales: { y: { beginAtZero: true, ticks: { callback: v => fmtM(v) } } } } });
+}
+
+
+// ==========================================================================
+// Budget Analysis tab (product-level detail, filterable)
+// ==========================================================================
+// Wildcard matcher: * = any chars, ? = one char, | = OR between patterns.
+// No wildcards → plain "contains". Always case-insensitive.
+function makeMatcher(q){
+  q = (q||'').trim().toLowerCase();
+  if(!q) return () => true;
+  const parts = q.split('|').map(s=>s.trim()).filter(Boolean);
+  const tests = parts.map(p=>{
+    if(p.includes('*')||p.includes('?')){
+      const rx = new RegExp(p.replace(/[.+^${}()[\]\\]/g,'\\$&').replace(/\*/g,'.*').replace(/\?/g,'.'),'i');
+      return t => rx.test(t);
+    }
+    return t => t.includes(p);
+  });
+  return t => { const s=(t||'').toLowerCase(); return tests.some(fn=>fn(s)); };
+}
+
+const shopRegionMap = {};   // shopIdx -> regIdx (first seen)
+(function(){ for (let i=0;i<ROWS.length;i++){ const r=ROWS[i]; if(r[3]>=0 && r[4]>=0 && !(r[3] in shopRegionMap)) shopRegionMap[r[3]]=r[4]; } })();
+
+function bvdInit() {
+  const mSel=document.getElementById('bvdMonth'), dSel=document.getElementById('bvdDay');
+  const rSel=document.getElementById('bvdRegion'), sSel=document.getElementById('bvdShop');
+  const gSel=document.getElementById('bvdSeg'), pInp=document.getElementById('bvdProd');
+  mSel.innerHTML = BVA.months.map((m,i)=>`<option value="${i}">${BVA.month_labels[i]}</option>`).join('');
+  const regIdxs=[...new Set(Object.values(shopRegionMap))].sort((a,b)=>L.regs[a].localeCompare(L.regs[b]));
+  rSel.innerHTML='<option value="-1">All regions</option>'+regIdxs.map(i=>`<option value="${i}">${L.regs[i]}</option>`).join('');
+  gSel.innerHTML='<option value="-1">All segments</option>'+BVA.segs.map((s,i)=>`<option value="${i}">${s}</option>`).join('');
+  const now=new Date(); const nowKey=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const mi=BVA.months.indexOf(nowKey);
+  mSel.value=mi>=0?mi:0;
+  bvdFillDays();
+  if(mi>=0) dSel.value=Math.min(now.getDate(),BVA.days_in_month[mi]);
+  bvdFillShops();
+  mSel.onchange=()=>{bvdFillDays();renderBvd();};
+  rSel.onchange=()=>{bvdFillShops();renderBvd();};
+  dSel.onchange=renderBvd; sSel.onchange=renderBvd; gSel.onchange=renderBvd;
+  let t=null; pInp.oninput=()=>{clearTimeout(t);t=setTimeout(renderBvd,250);};
+  const sqInp=document.getElementById('bvdShopQ');
+  let t2=null; sqInp.oninput=()=>{clearTimeout(t2);t2=setTimeout(renderBvd,250);};
+  document.getElementById('bvdSort').onchange=renderBvd;
+  document.getElementById('bvdSub').onchange=renderBvd;
+  renderBvd();
+}
+
+function bvdFillDays(){
+  const mi=+document.getElementById('bvdMonth').value;
+  const dSel=document.getElementById('bvdDay');
+  const keep=+dSel.value||1, n=BVA.days_in_month[mi]||31;
+  dSel.innerHTML=Array.from({length:n},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
+  dSel.value=Math.min(keep,n);
+}
+
+function bvdFillShops(){
+  const reg=+document.getElementById('bvdRegion').value;
+  const sSel=document.getElementById('bvdShop');
+  const keep=sSel.value;
+  let shopIdxs=[...new Set(BVA.detail.map(e=>e[0]))];
+  if(reg>=0) shopIdxs=shopIdxs.filter(i=>shopRegionMap[i]===reg);
+  shopIdxs.sort((a,b)=>L.shops[a].localeCompare(L.shops[b]));
+  sSel.innerHTML='<option value="-1">All shops</option>'+shopIdxs.map(i=>`<option value="${i}">${L.shops[i]}</option>`).join('');
+  if([...sSel.options].some(o=>o.value===keep)) sSel.value=keep;
+}
+
+function renderBvd(){
+  if(!BVA.detail || !BVA.detail.length){
+    document.getElementById('tBvd').innerHTML='<tr><td style="padding:14px">No budget loaded.</td></tr>';
+    return;
+  }
+  const mi=+document.getElementById('bvdMonth').value;
+  const day=+document.getElementById('bvdDay').value;
+  const reg=+document.getElementById('bvdRegion').value;
+  const shopSel=+document.getElementById('bvdShop').value;
+  const segSel=+document.getElementById('bvdSeg').value;
+  const prodMatch=makeMatcher(document.getElementById('bvdProd').value);
+  const shopMatch=makeMatcher(document.getElementById('bvdShopQ').value);
+  const monthKey=BVA.months[mi];
+
+  const inScopeShop = si => (shopSel>=0 ? si===shopSel
+    : ((reg<0 || shopRegionMap[si]===reg) && shopMatch(L.shops[si])));
+  const prodOK = pi => pi>=0 && prodMatch(L.prods[pi]);
+
+  // budget per shop|prod line
+  const bud=new Map(), meta=new Map();
+  for(const e of BVA.detail){
+    if(!inScopeShop(e[0])) continue;
+    if(segSel>=0 && e[2]!==segSel) continue;
+    if(!prodOK(e[1])) continue;
+    const k=e[0]+'|'+e[1]+'|'+e[2];
+    bud.set(k,(bud.get(k)||0)+e[4+mi]);
+    if(!meta.has(k)) meta.set(k,{shop:e[0],prod:e[1],seg:e[2],cat:e[3]});
+  }
+  // actuals per shop|prod
+  const actD=new Map(), actM=new Map();
+  for(let i=0;i<ROWS.length;i++){
+    const r=ROWS[i];
+    const ds=L.dates[r[0]];
+    if(!ds.startsWith(monthKey)) continue;
+    if(!inScopeShop(r[3])) continue;
+    const cls=bvaClassify(r);
+    if(!cls) continue;
+    if(segSel>=0 && cls[0]!==segSel) continue;
+    if(!prodOK(r[5])) continue;
+    const d=+ds.slice(8);
+    if(d>day) continue;
+    const k=r[3]+'|'+r[5]+'|'+cls[0];
+    actM.set(k,(actM.get(k)||0)+cls[2]);
+    if(d===day) actD.set(k,(actD.get(k)||0)+cls[2]);
+    if(!meta.has(k)) meta.set(k,{shop:r[3],prod:r[5],seg:cls[0],cat:cls[1]});
+  }
+
+  const fmtV=v=>(Math.abs(v)>=100?fmt(Math.round(v)):v.toFixed(1));
+  const pct=(a,b)=>b?((a/b-1)*100).toFixed(1)+'%':(a?'—':'0.0%');
+  const varCell=(a,b)=>{const v=a-b;const c=v>=0?'#15803d':'#b91c1c';
+    return `<td class="num" style="color:${c}">${v>=0?'+':''}${fmtV(v)}</td><td class="num" style="color:${c}">${pct(a,b)}</td>`;};
+
+  // rows
+  const rows=[];
+  const segTot={};
+  for(const [k,m] of meta){
+    const bd=bud.get(k)||0, ad=actD.get(k)||0, bm=bd*day, am=actM.get(k)||0;
+    if(bd===0&&am===0&&ad===0) continue;
+    rows.push({k,...m,bd,ad,bm,am,varM:am-bm});
+    const s=BVA.segs[m.seg];
+    segTot[s]=segTot[s]||{bd:0,ad:0,bm:0,am:0};
+    segTot[s].bd+=bd; segTot[s].ad+=ad; segTot[s].bm+=bm; segTot[s].am+=am;
+  }
+  const sortMode=document.getElementById('bvdSort').value;
+  const showSub=document.getElementById('bvdSub').checked;
+  const volOf=x=>(x.am||0)||-1e-9*(1/(1+x.bm));  // volume = MTD Actual; zero-actual lines fall back behind, ordered by budget
+  if(sortMode==='actual') rows.sort((a,b)=>(b.am-a.am)||(b.bm-a.bm));
+  else if(sortMode==='budget') rows.sort((a,b)=>(b.bm-a.bm)||(b.am-a.am));
+  else rows.sort((a,b)=>(b.am-a.am)||(b.bm-a.bm));  // grouped modes: pre-sort products by volume
+
+  // summary table
+  let sh='<thead><tr><th>Segment</th><th>Unit</th><th class="num">Day Bud</th><th class="num">Day Act</th><th class="num">Var</th><th class="num">%</th><th class="num">MTD Bud</th><th class="num">MTD Act</th><th class="num">Var</th><th class="num">%</th></tr></thead><tbody>';
+  for(const s of BVA.segs){
+    const t=segTot[s]; if(!t) continue;
+    sh+=`<tr><td style="font-weight:600">${s}</td><td>${BVA.units[s]}</td><td class="num">${fmtV(t.bd)}</td><td class="num">${fmtV(t.ad)}</td>${varCell(t.ad,t.bd)}<td class="num">${fmtV(t.bm)}</td><td class="num">${fmtV(t.am)}</td>${varCell(t.am,t.bm)}</tr>`;
+  }
+  sh+='</tbody>';
+  document.getElementById('tBvdSum').innerHTML=sh;
+
+  // detail table (cap 500 product rows)
+  const CAP=500;
+  const rowHtml=x=>{
+    const cname=x.cat>=0?(L.cats[x.cat]||''):'';
+    return `<tr><td>${L.shops[x.shop]}</td><td>${x.prod>=0?L.prods[x.prod]:'?'}</td><td>${BVA.segs[x.seg]}</td><td>${cname}</td><td>${BVA.units[BVA.segs[x.seg]]}</td>`+
+      `<td class="num">${fmtV(x.bd)}</td><td class="num">${fmtV(x.ad)}</td>${varCell(x.ad,x.bd)}`+
+      `<td class="num">${fmtV(x.bm)}</td><td class="num">${fmtV(x.am)}</td>${varCell(x.am,x.bm)}</tr>`;
+  };
+  let h='<thead><tr><th>Shop</th><th>Product</th><th>Segment</th><th>Category</th><th>Unit</th>'+
+    '<th class="num">Day Bud</th><th class="num">Day Act</th><th class="num">Var</th><th class="num">%</th>'+
+    '<th class="num">MTD Bud</th><th class="num">MTD Act</th><th class="num">Var</th><th class="num">%</th></tr></thead><tbody>';
+  if(sortMode==='shopaz'||sortMode==='shopvol'||sortMode==='shopaz_pct'){
+    // group by shop
+    const groups=new Map();
+    for(const x of rows){
+      if(!groups.has(x.shop)) groups.set(x.shop,{items:[],bd:0,ad:0,bm:0,am:0});
+      const g=groups.get(x.shop);
+      g.items.push(x); g.bd+=x.bd; g.ad+=x.ad; g.bm+=x.bm; g.am+=x.am;
+    }
+    let order=[...groups.keys()];
+    if(sortMode==='shopaz'||sortMode==='shopaz_pct') order.sort((a,b)=>L.shops[a].localeCompare(L.shops[b]));
+    else order.sort((a,b)=>(groups.get(b).am-groups.get(a).am)||(groups.get(b).bm-groups.get(a).bm));
+    let used=0;
+    const pctVal=x=> x.bm>0 ? x.am/x.bm-1 : (x.am>0 ? Infinity : -Infinity);
+    for(const si of order){
+      if(used>=CAP) break;
+      const g=groups.get(si);
+      if(sortMode==='shopaz_pct') g.items.sort((a,b)=>pctVal(b)-pctVal(a));
+      if(showSub){
+        h+=`<tr style="background:#f0fdf4;font-weight:700"><td>${L.shops[si]}</td><td colspan="3">SHOP TOTAL — ${g.items.length} lines</td><td></td>`+
+          `<td class="num">${fmtV(g.bd)}</td><td class="num">${fmtV(g.ad)}</td>${varCell(g.ad,g.bd)}`+
+          `<td class="num">${fmtV(g.bm)}</td><td class="num">${fmtV(g.am)}</td>${varCell(g.am,g.bm)}</tr>`;
+      }
+      for(const x of g.items){ if(used>=CAP) break; h+=rowHtml(x); used++; }
+    }
+  } else {
+    rows.slice(0,CAP).forEach(x=>{ h+=rowHtml(x); });
+  }
+  h+='</tbody>';
+  document.getElementById('tBvd').innerHTML=h;
+  document.getElementById('bvdTitle').textContent=
+    `Product Detail — Sales vs Budget (${rows.length.toLocaleString()} lines${rows.length>CAP?', showing top '+CAP+' by MTD budget':''})`;
+  document.getElementById('bvdInfo').textContent=`${rows.length.toLocaleString()} lines in scope · MTD through ${monthKey}-${String(day).padStart(2,'0')}`;
+
+  // top over/under chart
+  const byVar=[...rows].sort((a,b)=>a.varM-b.varM);
+  const worst=byVar.slice(0,6), best=byVar.slice(-6).reverse();
+  const sel=[...best,...worst];
+  const lbl=sel.map(x=>(L.prods[x.prod]||'?').slice(0,26)+' · '+(L.shops[x.shop]||'').slice(0,14));
+  const dat=sel.map(x=>x.varM);
+  if(CHARTS.cBvd){try{CHARTS.cBvd.destroy();}catch(e){}}
+  CHARTS.cBvd=new Chart(document.getElementById('cBvd'),{type:'bar',
+    data:{labels:lbl,datasets:[{label:'MTD Var',data:dat,backgroundColor:dat.map(v=>v>=0?'#16a34a':'#dc2626')}]},
+    options:{indexAxis:'y',maintainAspectRatio:false,plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:c=>'MTD variance: '+fmt(Math.round(c.parsed.x))}}},
+      scales:{x:{ticks:{callback:v=>fmtM(v)}},y:{ticks:{font:{size:9}}}}}});
+}
+
+
+// ==========================================================================
+// BvA — Volume & Value tab  (bvv)
+// ==========================================================================
+function bvvInit(){
+  const mSel=document.getElementById('bvvMonth'),dSel=document.getElementById('bvvDay');
+  const sSel=document.getElementById('bvvShop');
+  mSel.innerHTML=BVA.months.map((m,i)=>`<option value="${i}">${BVA.month_labels[i]}</option>`).join('');
+  const shopIdxs=[...new Set(BVA.detail.map(e=>e[0]))].sort((a,b)=>L.shops[a].localeCompare(L.shops[b]));
+  sSel.innerHTML='<option value="-1">All shops</option>'+shopIdxs.map(i=>`<option value="${i}">${L.shops[i]}</option>`).join('');
+  const now=new Date(),nowKey=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const mi=BVA.months.indexOf(nowKey);
+  mSel.value=mi>=0?mi:0; bvvFillDays();
+  if(mi>=0) dSel.value=Math.min(now.getDate(),BVA.days_in_month[mi]);
+  mSel.onchange=()=>{bvvFillDays();renderBvv();};
+  dSel.onchange=renderBvv; sSel.onchange=renderBvv;
+  renderBvv();
+}
+function bvvFillDays(){
+  const mi=+document.getElementById('bvvMonth').value,dSel=document.getElementById('bvvDay');
+  const keep=+dSel.value||1,n=BVA.days_in_month[mi]||31;
+  dSel.innerHTML=Array.from({length:n},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
+  dSel.value=Math.min(keep,n);
+}
+function renderBvv(){
+  const mi=+document.getElementById('bvvMonth').value;
+  const day=+document.getElementById('bvvDay').value;
+  const shopSel=+document.getElementById('bvvShop').value;
+  const monthKey=BVA.months[mi];
+
+  // budget per seg: volume/day and value/day
+  const budVol={},budVal={};
+  for(const e of BVA.detail){
+    if(shopSel>=0&&e[0]!==shopSel) continue;
+    const s=BVA.segs[e[2]],vday=e[4+mi],price=e[9]||0;
+    budVol[s]=(budVol[s]||0)+vday;
+    budVal[s]=(budVal[s]||0)+vday*price;
+  }
+  // actuals (volume + amount)
+  const actVD={},actVM={},actAD={},actAM={};
+  for(let i=0;i<ROWS.length;i++){
+    const r=ROWS[i],ds=L.dates[r[0]];
+    if(!ds.startsWith(monthKey)) continue;
+    if(shopSel>=0&&r[3]!==shopSel) continue;
+    const cls=bvaClassify(r); if(!cls) continue;
+    const d=+ds.slice(8); if(d>day) continue;
+    const s=BVA.segs[cls[0]];
+    actVM[s]=(actVM[s]||0)+cls[2]; actAM[s]=(actAM[s]||0)+r[9];
+    if(d===day){actVD[s]=(actVD[s]||0)+cls[2]; actAD[s]=(actAD[s]||0)+r[9];}
+  }
+  const fmtV=v=>(Math.abs(v)>=1000?fmt(Math.round(v)):v.toFixed(1));
+  const fmtMWK=v=>fmt(Math.round(v));
+  const pct=(a,b)=>b?((a/b-1)*100).toFixed(1)+'%':(a?'—':'0.0%');
+  const vc=(a,b,fmtFn)=>{const v=a-b,c=v>=0?'#15803d':'#b91c1c';
+    return `<td class="num" style="color:${c}">${v>=0?'+':''}${fmtFn(v)}</td><td class="num" style="color:${c}">${pct(a,b)}</td>`;};
+
+  let h='<thead><tr>'
+    +'<th rowspan="2">Segment</th><th rowspan="2">Unit</th>'
+    +'<th colspan="4" style="text-align:center;border-bottom:1px solid #e2e8f0">Day Volume</th>'
+    +'<th colspan="4" style="text-align:center;border-bottom:1px solid #e2e8f0">MTD Volume</th>'
+    +'<th colspan="4" style="text-align:center;border-bottom:1px solid #e2e8f0">Day Value (MWK)</th>'
+    +'<th colspan="4" style="text-align:center;border-bottom:1px solid #e2e8f0">MTD Value (MWK)</th>'
+    +'</tr><tr>'
+    +'<th class="num">Budget</th><th class="num">Actual</th><th class="num">Var</th><th class="num">%</th>'
+    +'<th class="num">Budget</th><th class="num">Actual</th><th class="num">Var</th><th class="num">%</th>'
+    +'<th class="num">Budget</th><th class="num">Actual</th><th class="num">Var</th><th class="num">%</th>'
+    +'<th class="num">Budget</th><th class="num">Actual</th><th class="num">Var</th><th class="num">%</th>'
+    +'</tr></thead><tbody>';
+  const cvl=[],cal=[],cvv=[],cav=[];
+  for(const s of BVA.segs){
+    const unit=BVA.units[s];
+    const bvd=budVol[s]||0,avd=actVD[s]||0,bvm=bvd*day,avm=actVM[s]||0;
+    const bad=budVal[s]||0,aad=actAD[s]||0,bam=bad*day,aam=actAM[s]||0;
+    h+=`<tr style="font-weight:600"><td>${s}</td><td>${unit}</td>`
+      +`<td class="num">${fmtV(bvd)}</td><td class="num">${fmtV(avd)}</td>${vc(avd,bvd,fmtV)}`
+      +`<td class="num">${fmtV(bvm)}</td><td class="num">${fmtV(avm)}</td>${vc(avm,bvm,fmtV)}`
+      +`<td class="num">${fmtMWK(bad)}</td><td class="num">${fmtMWK(aad)}</td>${vc(aad,bad,fmtMWK)}`
+      +`<td class="num">${fmtMWK(bam)}</td><td class="num">${fmtMWK(aam)}</td>${vc(aam,bam,fmtMWK)}`
+      +'</tr>';
+    cvl.push(bvm); cal.push(avm); cvv.push(bam); cav.push(aam);
+  }
+  h+='</tbody>';
+  document.getElementById('tBvv').innerHTML=h;
+  const shopName=shopSel>=0?L.shops[shopSel]:'All shops';
+  document.getElementById('bvvTitle').textContent=`Volume & Value vs Budget · ${shopName} · ${BVA.month_labels[mi]}, day ${day}`;
+  document.getElementById('bvvInfo').textContent=`MTD through ${monthKey}-${String(day).padStart(2,'0')}`;
+
+  const mkBar=(id,lbl,d1,d2,fn)=>{
+    if(CHARTS[id]){try{CHARTS[id].destroy();}catch(e){}}
+    CHARTS[id]=new Chart(document.getElementById(id),{type:'bar',
+      data:{labels:lbl,datasets:[{label:'MTD Budget',data:d1,backgroundColor:'#94a3b8'},{label:'MTD Actual',data:d2,backgroundColor:'#16a34a'}]},
+      options:{maintainAspectRatio:false,plugins:{legend:{position:'top'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fn(c.parsed.y)}}},
+        scales:{y:{beginAtZero:true,ticks:{callback:v=>fn(v)}}}}});
+  };
+  mkBar('cBvvVol',BVA.segs,cvl,cal,v=>fmtM(v));
+  mkBar('cBvvVal',BVA.segs,cvv,cav,v=>fmtM(v)+' MWK');
+}
+
+// ==========================================================================
+// BvA — Value Analysis tab  (bvp)
+// ==========================================================================
+function bvpInit(){
+  const mSel=document.getElementById('bvpMonth'),dSel=document.getElementById('bvpDay');
+  const rSel=document.getElementById('bvpRegion'),sSel=document.getElementById('bvpShop');
+  const gSel=document.getElementById('bvpSeg'),pInp=document.getElementById('bvpProd');
+  const sqInp=document.getElementById('bvpShopQ');
+  mSel.innerHTML=BVA.months.map((m,i)=>`<option value="${i}">${BVA.month_labels[i]}</option>`).join('');
+  const regIdxs=[...new Set(Object.values(shopRegionMap))].sort((a,b)=>L.regs[a].localeCompare(L.regs[b]));
+  rSel.innerHTML='<option value="-1">All regions</option>'+regIdxs.map(i=>`<option value="${i}">${L.regs[i]}</option>`).join('');
+  gSel.innerHTML='<option value="-1">All segments</option>'+BVA.segs.map((s,i)=>`<option value="${i}">${s}</option>`).join('');
+  const now=new Date(),nowKey=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const mi=BVA.months.indexOf(nowKey);
+  mSel.value=mi>=0?mi:0; bvpFillDays(); bvpFillShops();
+  if(mi>=0) dSel.value=Math.min(now.getDate(),BVA.days_in_month[mi]);
+  mSel.onchange=()=>{bvpFillDays();renderBvp();};
+  rSel.onchange=()=>{bvpFillShops();renderBvp();};
+  dSel.onchange=renderBvp; sSel.onchange=renderBvp;
+  gSel.onchange=renderBvp;
+  let t=null; pInp.oninput=()=>{clearTimeout(t);t=setTimeout(renderBvp,250);};
+  let t2=null; sqInp.oninput=()=>{clearTimeout(t2);t2=setTimeout(renderBvp,250);};
+  document.getElementById('bvpSort').onchange=renderBvp;
+  document.getElementById('bvpSub').onchange=renderBvp;
+  renderBvp();
+}
+function bvpFillDays(){
+  const mi=+document.getElementById('bvpMonth').value,dSel=document.getElementById('bvpDay');
+  const keep=+dSel.value||1,n=BVA.days_in_month[mi]||31;
+  dSel.innerHTML=Array.from({length:n},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
+  dSel.value=Math.min(keep,n);
+}
+function bvpFillShops(){
+  const reg=+document.getElementById('bvpRegion').value,sSel=document.getElementById('bvpShop');
+  const keep=sSel.value;
+  let shopIdxs=[...new Set(BVA.detail.map(e=>e[0]))];
+  if(reg>=0) shopIdxs=shopIdxs.filter(i=>shopRegionMap[i]===reg);
+  shopIdxs.sort((a,b)=>L.shops[a].localeCompare(L.shops[b]));
+  sSel.innerHTML='<option value="-1">All shops</option>'+shopIdxs.map(i=>`<option value="${i}">${L.shops[i]}</option>`).join('');
+  if([...sSel.options].some(o=>o.value===keep)) sSel.value=keep;
+}
+function renderBvp(){
+  if(!BVA.detail||!BVA.detail.length){
+    document.getElementById('tBvp').innerHTML='<tr><td style="padding:14px">No budget loaded.</td></tr>';
+    return;
+  }
+  const mi=+document.getElementById('bvpMonth').value;
+  const day=+document.getElementById('bvpDay').value;
+  const reg=+document.getElementById('bvpRegion').value;
+  const shopSel=+document.getElementById('bvpShop').value;
+  const segSel=+document.getElementById('bvpSeg').value;
+  const prodMatch=makeMatcher(document.getElementById('bvpProd').value);
+  const shopMatch=makeMatcher(document.getElementById('bvpShopQ').value);
+  const sortMode=document.getElementById('bvpSort').value;
+  const showSub=document.getElementById('bvpSub').checked;
+  const monthKey=BVA.months[mi];
+
+  const inScopeShop=si=>(shopSel>=0?si===shopSel:((reg<0||shopRegionMap[si]===reg)&&shopMatch(L.shops[si])));
+  const prodOK=pi=>pi>=0&&prodMatch(L.prods[pi]);
+
+  // budget value per shop×prod: vday × price × day (MTD)
+  const budMap=new Map(),metaMap=new Map();
+  for(const e of BVA.detail){
+    if(!inScopeShop(e[0])) continue;
+    if(segSel>=0&&e[2]!==segSel) continue;
+    if(!prodOK(e[1])) continue;
+    const k=e[0]+'|'+e[1]+'|'+e[2];
+    const vday=e[4+mi], price=e[9]||0;
+    const prev=budMap.get(k)||{bvd:0,bvdRaw:0};
+    budMap.set(k,{bvd:prev.bvd+vday*price, bvdRaw:prev.bvdRaw+vday});
+    if(!metaMap.has(k)) metaMap.set(k,{shop:e[0],prod:e[1],seg:e[2],cat:e[3],price});
+  }
+  // actual amount + volume per shop×prod
+  const actAD=new Map(),actAM=new Map(),actVD=new Map(),actVM=new Map();
+  for(let i=0;i<ROWS.length;i++){
+    const r=ROWS[i],ds=L.dates[r[0]];
+    if(!ds.startsWith(monthKey)) continue;
+    if(!inScopeShop(r[3])) continue;
+    const cls=bvaClassify(r); if(!cls) continue;
+    if(segSel>=0&&cls[0]!==segSel) continue;
+    if(!prodOK(r[5])) continue;
+    const d=+ds.slice(8); if(d>day) continue;
+    const k=r[3]+'|'+r[5]+'|'+cls[0];
+    actAM.set(k,(actAM.get(k)||0)+r[9]);
+    actVM.set(k,(actVM.get(k)||0)+cls[2]);
+    if(d===day){actAD.set(k,(actAD.get(k)||0)+r[9]); actVD.set(k,(actVD.get(k)||0)+cls[2]);}
+    if(!metaMap.has(k)) metaMap.set(k,{shop:r[3],prod:r[5],seg:cls[0],cat:cls[1],price:0});
+  }
+  const allKeys=new Set([...budMap.keys(),...actAM.keys()]);
+  const rows=[]; const segTot={};
+  for(const k of allKeys){
+    const m=metaMap.get(k); if(!m) continue;
+    const b=budMap.get(k)||{bvd:0,bvdRaw:0};
+    const bvd=b.bvd, bvm=bvd*day;
+    const avd=actAD.get(k)||0, avm=actAM.get(k)||0;
+    const volD=actVD.get(k)||0, volM=actVM.get(k)||0;
+    if(bvd===0&&avm===0&&avd===0) continue;
+    rows.push({k,...m,bvd,bvm,avd,avm,volD,volM,varM:avm-bvm});
+    const s=BVA.segs[m.seg];
+    segTot[s]=segTot[s]||{bvd:0,bvm:0,avd:0,avm:0};
+    segTot[s].bvd+=bvd; segTot[s].bvm+=bvm; segTot[s].avd+=avd; segTot[s].avm+=avm;
+  }
+  const fmtM2=v=>fmt(Math.round(v));
+  const pct=(a,b)=>b?((a/b-1)*100).toFixed(1)+'%':(a?'—':'0.0%');
+  const vc=(a,b)=>{const v=a-b,c=v>=0?'#15803d':'#b91c1c';
+    return `<td class="num" style="color:${c}">${v>=0?'+':''}${fmtM2(v)}</td><td class="num" style="color:${c}">${pct(a,b)}</td>`;};
+
+  // summary
+  let sh='<thead><tr><th>Segment</th>'
+    +'<th class="num">Day Bud MWK</th><th class="num">Day Act MWK</th><th class="num">Var</th><th class="num">%</th>'
+    +'<th class="num">MTD Bud MWK</th><th class="num">MTD Act MWK</th><th class="num">Var</th><th class="num">%</th>'
+    +'</tr></thead><tbody>';
+  for(const s of BVA.segs){
+    const t=segTot[s]; if(!t) continue;
+    sh+=`<tr style="font-weight:600"><td>${s}</td>`
+      +`<td class="num">${fmtM2(t.bvd)}</td><td class="num">${fmtM2(t.avd)}</td>${vc(t.avd,t.bvd)}`
+      +`<td class="num">${fmtM2(t.bvm)}</td><td class="num">${fmtM2(t.avm)}</td>${vc(t.avm,t.bvm)}`
+      +'</tr>';
+  }
+  sh+='</tbody>';
+  document.getElementById('tBvpSum').innerHTML=sh;
+
+  // sort rows
+  if(sortMode==='actual') rows.sort((a,b)=>(b.avm-a.avm));
+  else if(sortMode==='var') rows.sort((a,b)=>(a.varM-b.varM));
+  else if(sortMode==='pct') rows.sort((a,b)=>{const pa=a.bvm?a.avm/a.bvm:Infinity,pb=b.bvm?b.avm/b.bvm:Infinity; return pa-pb;});
+  else rows.sort((a,b)=>(b.bvm-a.bvm));  // grouped modes also pre-sort by value
+
+  // over/under chart (top 6 best + worst by MTD var MWK)
+  const byVar=[...rows].sort((a,b)=>a.varM-b.varM);
+  const worst=byVar.slice(0,6),best=byVar.slice(-6).reverse();
+  const sel=[...best,...worst];
+  const clbl=sel.map(x=>(L.prods[x.prod]||'?').slice(0,26)+' · '+(L.shops[x.shop]||'').slice(0,14));
+  const cdat=sel.map(x=>x.varM);
+  if(CHARTS.cBvp){try{CHARTS.cBvp.destroy();}catch(e){}}
+  CHARTS.cBvp=new Chart(document.getElementById('cBvp'),{type:'bar',
+    data:{labels:clbl,datasets:[{label:'MTD Value Var (MWK)',data:cdat,backgroundColor:cdat.map(v=>v>=0?'#16a34a':'#dc2626')}]},
+    options:{indexAxis:'y',maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'MTD var: '+fmt(Math.round(c.parsed.x))+' MWK'}}},
+      scales:{x:{ticks:{callback:v=>fmtM(v)}},y:{ticks:{font:{size:9}}}}}});
+
+  // detail table
+  const CAP=500;
+  const rowHtml=x=>{
+    const seg=BVA.segs[x.seg],unit=BVA.units[seg];
+    const cname=x.cat>=0?(L.cats[x.cat]||''):'';
+    return `<tr><td>${L.shops[x.shop]}</td><td>${x.prod>=0?L.prods[x.prod]:'?'}</td>`
+      +`<td>${seg}</td><td>${cname}</td><td>${unit}</td><td class="num">${fmt(Math.round(x.price))}</td>`
+      +`<td class="num">${fmtM2(x.bvd)}</td><td class="num">${fmtM2(x.avd)}</td>${vc(x.avd,x.bvd)}`
+      +`<td class="num">${fmtM2(x.bvm)}</td><td class="num">${fmtM2(x.avm)}</td>${vc(x.avm,x.bvm)}</tr>`;
+  };
+  let h='<thead><tr><th>Shop</th><th>Product</th><th>Segment</th><th>Category</th><th>Unit</th><th class="num">Price/unit (MWK)</th>'
+    +'<th class="num">Day Bud</th><th class="num">Day Act</th><th class="num">Var</th><th class="num">%</th>'
+    +'<th class="num">MTD Bud</th><th class="num">MTD Act</th><th class="num">Var</th><th class="num">%</th>'
+    +'</tr></thead><tbody>';
+  if(sortMode==='shopaz'||sortMode==='shopvol'){
+    const groups=new Map();
+    for(const x of rows){
+      if(!groups.has(x.shop)) groups.set(x.shop,{items:[],bvm:0,avm:0,avd:0,bvd:0});
+      const g=groups.get(x.shop); g.items.push(x); g.bvm+=x.bvm; g.avm+=x.avm; g.avd+=x.avd; g.bvd+=x.bvd;
+    }
+    let order=[...groups.keys()];
+    if(sortMode==='shopaz') order.sort((a,b)=>L.shops[a].localeCompare(L.shops[b]));
+    else order.sort((a,b)=>(groups.get(b).avm-groups.get(a).avm));
+    let used=0;
+    for(const si of order){
+      if(used>=CAP) break;
+      const g=groups.get(si);
+      if(showSub){
+        h+=`<tr style="background:#f0fdf4;font-weight:700"><td>${L.shops[si]}</td><td colspan="4">SHOP TOTAL — ${g.items.length} lines</td><td></td>`
+          +`<td class="num">${fmtM2(g.bvd)}</td><td class="num">${fmtM2(g.avd)}</td>${vc(g.avd,g.bvd)}`
+          +`<td class="num">${fmtM2(g.bvm)}</td><td class="num">${fmtM2(g.avm)}</td>${vc(g.avm,g.bvm)}</tr>`;
+      }
+      for(const x of g.items){ if(used>=CAP) break; h+=rowHtml(x); used++; }
+    }
+  } else {
+    rows.slice(0,CAP).forEach(x=>{h+=rowHtml(x);});
+  }
+  h+='</tbody>';
+  document.getElementById('tBvp').innerHTML=h;
+  const shopName=shopSel>=0?L.shops[shopSel]:'All shops';
+  document.getElementById('bvpTitle').textContent=
+    `Product Value Detail (MWK) — ${rows.length.toLocaleString()} lines${rows.length>CAP?', top '+CAP:''}`;
+  document.getElementById('bvpInfo').textContent=`${rows.length.toLocaleString()} lines · MTD through ${monthKey}-${String(day).padStart(2,'0')}`;
+}
 // ==========================================================================
 // Wire up UI
 // ==========================================================================
@@ -1012,6 +1735,10 @@ document.getElementById('prodSearch').oninput = renderProducts;
 
 // Initial render
 renderAll();
+bvaInit();
+bvdInit();
+bvvInit();
+bvpInit();
 </script>
 
 </body>
