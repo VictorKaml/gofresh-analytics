@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/package.json",
   "name": "gofresh-sales-dashboard",
   "productName": "GoFresh Sales Dashboard",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "description": "GoFresh RetailMax Sales Intelligence Dashboard (desktop app)",
   "main": "main.js",
   "scripts": {
@@ -11,7 +11,7 @@
     "predist": "npm run build:python",
     "dist": "electron-builder --win",
     "prerelease": "npm run build:python",
-    "release": "dotenv -e .env -- electron-builder --win --publish always",
+    "release": "node scripts/bump.js major && dotenv -e .env -- electron-builder --win --publish always",
     "bump": "node scripts/bump.js patch",
     "bump:minor": "node scripts/bump.js minor",
     "bump:major": "node scripts/bump.js major"
